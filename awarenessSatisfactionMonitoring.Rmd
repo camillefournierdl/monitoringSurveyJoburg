@@ -6,17 +6,53 @@ output: html_document
 
 ```{r setup}
 
+# ## clean environment
+# # rm(list = ls())
+# 
+# # Define which packages needed for analyses
+# p_needed <-
+#   c("tidyverse")
+# 
+# # Check which packages are already installed on your computer
+# packages <- rownames(installed.packages())
+# 
+# # Check which packages are not installed
+# p_to_install <- p_needed[!(p_needed %in% packages)]
+# 
+# if (length(p_to_install) > 0) {
+#   install.packages(p_to_install)
+# }
+# sapply(p_needed, require, character.only = TRUE)
+# 
+# 
+# # Set an option for the final document that can be produced from the .Rmd file.
+# knitr::opts_chunk$set(echo = TRUE)
+# 
+# ## For replicability: session information 
+# session_info <- print(sessionInfo())
+
 library(tidyverse)
 
+# Set an option for the final document that can be produced from the .Rmd file.
+knitr::opts_chunk$set(echo = TRUE)
+
+## For replicability: session information 
+session_info <- print(sessionInfo())
+
+```
+
+
+
+
+```{r load the data}
 "%ni%" = Negate("%in%")
 
 set.seed(123)
 
 dataJoburg <- read.csv("data/data_joh_person.csv")
 
-
-
 ```
+
 
 
 ```{r data cleaning}
@@ -47,6 +83,267 @@ dataJoburg <- dataJoburgFilter2
 ```
 
 
+```{r figure knowledge}
+library(RColorBrewer)
+library(scales)
+
+dataJoburg <- dataJoburg %>%
+  mutate(AM_Knowlg_1F = factor(recode(AM_Knowlg_1,
+                                  `1` = "Would not know",
+                                  `2` = " ",
+                                  `3` = "Perhaps",
+                                  `4` = "  ",
+                                  `5` = "Would know"),
+                               levels = c("Would not know", " ", "Perhaps", "  ", "Would know"),
+                               ordered = TRUE))
+
+dataJoburg %>%
+  filter(!is.na(AM_Knowlg_1F)) %>%
+  ggplot(aes(x = AM_Knowlg_1F))+
+  labs(x = "If you would want to know how much air pollution there is in Johannesburg,\nwould you know or not know where to find this information?")+
+  geom_histogram(stat = "count", binwidth = 1, col = "black", fill = "white")+
+  theme_minimal()
+
+
+### horizontal, nicer looking graphs for first descriptive questions
+
+## summarise
+knowledge <- dataJoburg %>%
+  filter(!is.na(AM_Knowlg_1)) %>% 
+  group_by(AM_Knowlg_1) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(share = count / sum(count),
+         label = round(share * 100))
+
+## add a text color column based on concern category
+knowledge <- knowledge %>%
+  mutate(
+    text_color = case_when(
+      AM_Knowlg_1 %in% c("5", "4") ~ "lightgrey",  # light grey text for dark fill
+      TRUE ~ "grey28"  # default dark grey for lighter fills
+    )
+  )
+  
+#-------------------------------------------------------------------------------
+# Plot distribution per city
+#-------------------------------------------------------------------------------
+
+## reverse ordering for the plot
+knowledge$AM_Knowlg_1_cat <- factor(
+  knowledge$AM_Knowlg_1,
+  levels = c("5", "4", "3", "2", "1"),  # reverse order
+  labels = c("Would know", "   ●   ", "Perhaps", "  ●  ", "Would not know"),
+  ordered = TRUE
+)
+
+
+p1 <- ggplot(knowledge, aes(x = "", y = share, fill = AM_Knowlg_1_cat)) +
+  geom_col(width = 0.6) +             # bar height = pct
+  geom_text(aes(label = label),
+            position = position_stack(vjust = 0.5),
+            color = knowledge$text_color,
+            size = 3, na.rm = TRUE) +
+  coord_flip() +                      # rotate to horizontal
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(values = (brewer.pal(5, "BuPu")),
+                    limits = rev(c("Would know", "   ●   ", "Perhaps", "  ●  ", "Would not know")))+
+  labs(
+    x    = "",
+    y    = "Percentage",
+    fill = "Response",
+    title = "If you would want to know how much air pollution there is in Johannesburg,\nwould you know or not know where to find this information?"
+  ) +
+  theme_minimal()+
+  theme(
+    legend.position = "top",
+    # axis.text = element_text(size = 19),
+    # axis.title = element_text(size = 19),
+    legend.title = element_blank()
+    # legend.text = element_text(size = 16)
+  )
+
+ggsave(plot = p1, filename = paste("plots/knowledge.png", sep = ""),
+       dpi=600, width = 18, height = 8, units='cm')
+
+
+```
+
+
+```{r figure frequency information}
+## summarise
+freqJ <- dataJoburg %>%
+  filter(!is.na(AM_Freq)) %>% 
+  group_by(AM_Freq) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(share = count / sum(count),
+         label = round(share * 100))
+
+## add a text color column based on concern category
+freqJ <- freqJ %>%
+  mutate(
+    text_color = case_when(
+      AM_Freq %in% c("3") ~ "lightgrey",  # light grey text for dark fill
+      TRUE ~ "grey28"  # default dark grey for lighter fills
+    )
+  )
+  
+#-------------------------------------------------------------------------------
+# Plot distribution per city
+#-------------------------------------------------------------------------------
+
+## reverse ordering for the plot
+freqJ$AM_Freq_cat <- factor(
+  freqJ$AM_Freq,
+  levels = c("3", "2", "1"),  # reverse order
+  labels = c("Often", "Rarely", "Never"),
+  ordered = TRUE
+)
+
+
+p2 <- ggplot(freqJ, aes(x = "", y = share, fill = AM_Freq_cat)) +
+  geom_col(width = 0.6) +             # bar height = pct
+  geom_text(aes(label = label),
+            position = position_stack(vjust = 0.5),
+            color = freqJ$text_color,
+            size = 3, na.rm = TRUE) +
+  coord_flip() +                      # rotate to horizontal
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(values = (brewer.pal(3, "BuPu")),
+                    limits = rev(c("Often", "Rarely", "Never")))+
+  labs(
+    x    = "",
+    y    = "Percentage",
+    fill = "Response",
+    title = "How often or not do you look up information on air pollution in Johannesburg?"
+  ) +
+  theme_minimal()+
+  theme(
+    legend.position = "top",
+    # axis.text = element_text(size = 19),
+    # axis.title = element_text(size = 19),
+    legend.title = element_blank()
+    # legend.text = element_text(size = 16)
+  )
+
+ggsave(plot = p2, filename = paste("plots/informationFreq.png", sep = ""),
+       dpi=600, width = 18, height = 8, units='cm')
+```
+
+
+```{r figure satisfaction}
+## summarise
+satisfaction <- dataJoburg %>%
+  filter(!is.na(AM_Perc)) %>% 
+  group_by(AM_Perc) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(share = count / sum(count),
+         label = round(share * 100))
+
+## add a text color column based on concern category
+satisfaction <- satisfaction %>%
+  mutate(
+    text_color = case_when(
+      AM_Perc %in% c("3") ~ "lightgrey",  # light grey text for dark fill
+      TRUE ~ "grey28"  # default dark grey for lighter fills
+    )
+  )
+  
+#-------------------------------------------------------------------------------
+# Plot distribution per city
+#-------------------------------------------------------------------------------
+
+## reverse ordering for the plot
+satisfaction$AM_Perc_cat <- factor(
+  satisfaction$AM_Perc,
+  levels = c("3", "2", "1"),  # reverse order
+  labels = c("Good job", "Moderate job", "Bad job"),
+  ordered = TRUE
+)
+
+
+p3 <- ggplot(satisfaction, aes(x = "", y = share, fill = AM_Perc_cat)) +
+  geom_col(width = 0.6) +             # bar height = pct
+  geom_text(aes(label = label),
+            position = position_stack(vjust = 0.5),
+            color = satisfaction$text_color,
+            size = 3, na.rm = TRUE) +
+  coord_flip() +                      # rotate to horizontal
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(values = (brewer.pal(3, "BuPu")),
+                    limits = rev(c("Good job", "Moderate job", "Bad job")))+
+  labs(
+    x    = "",
+    y    = "Percentage",
+    fill = "Response",
+    title = "In your view, has the city government of Johannesburg done a good job or bad job\nin informing people about air pollution?"
+  ) +
+  theme_minimal()+
+  theme(
+    legend.position = "top",
+    # axis.text = element_text(size = 19),
+    # axis.title = element_text(size = 19),
+    legend.title = element_blank()
+    # legend.text = element_text(size = 16)
+  )
+
+ggsave(plot = p3, filename = paste("plots/satisfaction.png", sep = ""),
+       dpi=600, width = 18, height = 8, units='cm')
+```
+
+
+```{r figure interaction}
+### test with 3x5 heatmap
+
+# Create cross-tabulation and calculate percentages
+heatmap_data_3x5 <- dataJoburg %>%
+  filter(!(is.na(AM_Knowlg_1) | is.na(AM_Perc))) %>% 
+  count(AM_Knowlg_1, AM_Perc) %>%
+  group_by(AM_Perc) %>%
+  mutate(
+    total = sum(n),
+    percentage = n/total * 100,
+    label = paste0(round(percentage, 1), "%")
+  ) %>%
+  ungroup()
+
+# Create 3x5 heatmap
+plot_3x5 <- ggplot(heatmap_data_3x5, aes(x = AM_Knowlg_1, y = AM_Perc, fill = percentage)) +
+  geom_tile(color = "white", size = 0.5) +
+  geom_text(aes(label = label), color = "white", size = 4, fontface = "bold") +
+  scale_fill_gradient2(
+    low = "lightblue", 
+    mid = "steelblue", 
+    high = "darkblue",
+    midpoint = 20,
+    name = "Percentage"
+  ) +
+  # scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+  labs(
+    title = "",
+    x = "If you would want to know how much air pollution there is in Johannesburg,\nwould you know or not know where to find this information?",
+    y = "In your view, has the city government of Johannesburg done a good job or bad job\nin informing people about air pollution?"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text = element_text(size = 11),
+    panel.grid = element_blank(),
+    legend.position = "right"
+  )
+
+print(plot_3x5)
+
+```
 
 
 

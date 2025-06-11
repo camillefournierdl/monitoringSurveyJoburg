@@ -111,12 +111,12 @@ preferencePopPol$AM_priority_exposure_cat <- factor(
 )
 
 
-ggplot(preferencePopPol, aes(x = "", y = share, fill = AM_priority_exposure_cat)) +
+p1 <- ggplot(preferencePopPol, aes(x = "", y = share, fill = AM_priority_exposure_cat)) +
   geom_col(width = 0.6) +             # bar height = pct
   geom_text(aes(label = label),
             position = position_stack(vjust = 0.5),
             color = preferencePopPol$text_color,
-            size = 7, na.rm = TRUE) +
+            size = 3, na.rm = TRUE) +
   coord_flip() +                      # rotate to horizontal
   scale_y_continuous(
     labels = percent_format(accuracy = 1),
@@ -129,15 +129,20 @@ ggplot(preferencePopPol, aes(x = "", y = share, fill = AM_priority_exposure_cat)
     y    = "Percentage",
     fill = "Response",
     title = "Where do you think the City of Joburg should put\nthese devices first to measure air pollution? Pick one of these:"
-  ) +
-  theme_minimal(base_size = 14)+
+  )+
+  theme_minimal()+
   theme(
-    legend.position = "top",
-    axis.text = element_text(size = 19),
-    axis.title = element_text(size = 19),
-    legend.title = element_blank(),
-    legend.text = element_text(size = 16)
+    legend.position = "top"
+    #,
+    # axis.text = element_text(size = 19),
+    # axis.title = element_text(size = 19),
+    # legend.title = element_blank(),
+    # legend.text = element_text(size = 16)
   )
+
+ggsave(plot = p1, filename = paste("plots/tradeOffPlacement.png", sep = ""),
+       dpi=600, width = 14, height = 8, units='cm')
+
 
 ```
 
@@ -168,7 +173,7 @@ rank1_counts <- rank1_counts %>%
   ))
 
 # Create a bar chart of the counts
-ggplot(rank1_counts, aes(x = reorder(item, -n), y = n, fill = item)) +
+p2 <- ggplot(rank1_counts, aes(x = reorder(item, -n), y = n, fill = item)) +
   geom_col() +
   labs(
     title = "Where do you think the City of Joburg should\nput technical devices to measure air pollution? - Most Common Rank 1",
@@ -177,6 +182,9 @@ ggplot(rank1_counts, aes(x = reorder(item, -n), y = n, fill = item)) +
     fill = ""
   )+
   scale_fill_manual(values = brewer.pal(5, "BuPu"))
+
+ggsave(plot = p2, filename = paste("plots/priorityPlacementRank1.png", sep = ""),
+       dpi=600, width = 18, height = 11, units='cm')
 
 data_long <- data_long %>%
   mutate(item = factor(
@@ -189,7 +197,7 @@ data_long <- data_long %>%
     levels = c("factories", "residential areas", "hospitals", "schools", "roads")
   ))
 
-ggplot(data_long, aes(x = reorder(item, rank, FUN = median, na.rm = TRUE), y = rank, fill = item)) +
+p3 <- ggplot(data_long, aes(x = reorder(item, rank, FUN = median, na.rm = TRUE), y = rank, fill = item)) +
   geom_boxplot() +
   labs(
     title = "Where do you think the City of Joburg should\nput technical devices to measure air pollution? - Ranking Distribution",
@@ -199,6 +207,8 @@ ggplot(data_long, aes(x = reorder(item, rank, FUN = median, na.rm = TRUE), y = r
   )+
   scale_fill_manual(values = brewer.pal(5, "BuPu"))
 
+ggsave(plot = p3, filename = paste("plots/priorityPlacementContinuous.png", sep = ""),
+       dpi=600, width = 18, height = 11, units='cm')
 
 ```
 
@@ -239,7 +249,7 @@ rank1_counts$AM_priority_exposure_cat <- factor(
 
 
 # Create a bar chart of the counts
-ggplot(rank1_counts, aes(x = reorder(item, -n), y = n, fill = item)) +
+p4 <- ggplot(rank1_counts, aes(x = reorder(item, -n), y = n, fill = item)) +
   geom_col() +
   labs(
     title = "Where do you think the City of Joburg should\nput technical devices to measure air pollution? - Most Common Rank 1",
@@ -248,27 +258,11 @@ ggplot(rank1_counts, aes(x = reorder(item, -n), y = n, fill = item)) +
     fill = ""
   )+
   scale_fill_manual(values = brewer.pal(5, "BuPu"))+
-  facet_wrap(~AM_priority_exposure_cat)
+  facet_wrap(~AM_priority_exposure_cat)+
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.7))
 
-data_long <- data_long %>%
-  mutate(item = factor(
-    recode(item,
-           `AM_priority_source_1` = "roads",
-           `AM_priority_source_2` = "hospitals",
-           `AM_priority_source_3` = "schools",
-           `AM_priority_source_4` = "factories",
-           `AM_priority_source_5` = "residential areas"),
-    levels = c("factories", "residential areas", "hospitals", "schools", "roads")
-  ))
+ggsave(plot = p4, filename = paste("plots/priorityPlacementRank1_interaction.png", sep = ""),
+       dpi=600, width = 21, height = 13, units='cm')
 
-ggplot(data_long, aes(x = reorder(item, rank, FUN = median, na.rm = TRUE), y = rank, fill = item)) +
-  geom_boxplot() +
-  labs(
-    title = "Where do you think the City of Joburg should\nput technical devices to measure air pollution? - Ranking Distribution",
-    x = "Where to set up monitors in priority?",
-    y = "Ranking",
-    fill = ""
-  )+
-  scale_fill_manual(values = brewer.pal(5, "BuPu"))
 
 ```

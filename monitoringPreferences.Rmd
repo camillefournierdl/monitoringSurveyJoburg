@@ -132,11 +132,10 @@ p1 <- ggplot(preferencePopPol, aes(x = "", y = share, fill = AM_priority_exposur
   )+
   theme_minimal()+
   theme(
-    legend.position = "top"
-    #,
+    legend.position = "top",
     # axis.text = element_text(size = 19),
     # axis.title = element_text(size = 19),
-    # legend.title = element_blank(),
+    legend.title = element_blank()
     # legend.text = element_text(size = 16)
   )
 

@@ -137,12 +137,12 @@ knowledge$AM_Knowlg_1_cat <- factor(
 )
 
 
-ggplot(knowledge, aes(x = "", y = share, fill = AM_Knowlg_1_cat)) +
+p1 <- ggplot(knowledge, aes(x = "", y = share, fill = AM_Knowlg_1_cat)) +
   geom_col(width = 0.6) +             # bar height = pct
   geom_text(aes(label = label),
             position = position_stack(vjust = 0.5),
             color = knowledge$text_color,
-            size = 7, na.rm = TRUE) +
+            size = 3, na.rm = TRUE) +
   coord_flip() +                      # rotate to horizontal
   scale_y_continuous(
     labels = percent_format(accuracy = 1),
@@ -156,14 +156,19 @@ ggplot(knowledge, aes(x = "", y = share, fill = AM_Knowlg_1_cat)) +
     fill = "Response",
     title = "If you would want to know how much air pollution there is in Johannesburg,\nwould you know or not know where to find this information?"
   ) +
-  theme_minimal(base_size = 14)+
+  theme_minimal()+
   theme(
     legend.position = "top",
-    axis.text = element_text(size = 19),
-    axis.title = element_text(size = 19),
-    legend.title = element_blank(),
-    legend.text = element_text(size = 16)
+    # axis.text = element_text(size = 19),
+    # axis.title = element_text(size = 19),
+    legend.title = element_blank()
+    # legend.text = element_text(size = 16)
   )
+
+ggsave(plot = p1, filename = paste("plots/knowledge.png", sep = ""),
+       dpi=600, width = 18, height = 8, units='cm')
+
+
 ```
 
 
@@ -198,12 +203,12 @@ freqJ$AM_Freq_cat <- factor(
 )
 
 
-ggplot(freqJ, aes(x = "", y = share, fill = AM_Freq_cat)) +
+p2 <- ggplot(freqJ, aes(x = "", y = share, fill = AM_Freq_cat)) +
   geom_col(width = 0.6) +             # bar height = pct
   geom_text(aes(label = label),
             position = position_stack(vjust = 0.5),
             color = freqJ$text_color,
-            size = 7, na.rm = TRUE) +
+            size = 3, na.rm = TRUE) +
   coord_flip() +                      # rotate to horizontal
   scale_y_continuous(
     labels = percent_format(accuracy = 1),
@@ -217,14 +222,17 @@ ggplot(freqJ, aes(x = "", y = share, fill = AM_Freq_cat)) +
     fill = "Response",
     title = "How often or not do you look up information on air pollution in Johannesburg?"
   ) +
-  theme_minimal(base_size = 14)+
+  theme_minimal()+
   theme(
     legend.position = "top",
-    axis.text = element_text(size = 19),
-    axis.title = element_text(size = 19),
-    legend.title = element_blank(),
-    legend.text = element_text(size = 16)
+    # axis.text = element_text(size = 19),
+    # axis.title = element_text(size = 19),
+    legend.title = element_blank()
+    # legend.text = element_text(size = 16)
   )
+
+ggsave(plot = p2, filename = paste("plots/informationFreq.png", sep = ""),
+       dpi=600, width = 18, height = 8, units='cm')
 ```
 
 
@@ -259,12 +267,12 @@ satisfaction$AM_Perc_cat <- factor(
 )
 
 
-ggplot(satisfaction, aes(x = "", y = share, fill = AM_Perc_cat)) +
+p3 <- ggplot(satisfaction, aes(x = "", y = share, fill = AM_Perc_cat)) +
   geom_col(width = 0.6) +             # bar height = pct
   geom_text(aes(label = label),
             position = position_stack(vjust = 0.5),
             color = satisfaction$text_color,
-            size = 7, na.rm = TRUE) +
+            size = 3, na.rm = TRUE) +
   coord_flip() +                      # rotate to horizontal
   scale_y_continuous(
     labels = percent_format(accuracy = 1),
@@ -278,14 +286,17 @@ ggplot(satisfaction, aes(x = "", y = share, fill = AM_Perc_cat)) +
     fill = "Response",
     title = "In your view, has the city government of Johannesburg done a good job or bad job\nin informing people about air pollution?"
   ) +
-  theme_minimal(base_size = 14)+
+  theme_minimal()+
   theme(
     legend.position = "top",
-    axis.text = element_text(size = 19),
-    axis.title = element_text(size = 19),
-    legend.title = element_blank(),
-    legend.text = element_text(size = 16)
+    # axis.text = element_text(size = 19),
+    # axis.title = element_text(size = 19),
+    legend.title = element_blank()
+    # legend.text = element_text(size = 16)
   )
+
+ggsave(plot = p3, filename = paste("plots/satisfaction.png", sep = ""),
+       dpi=600, width = 18, height = 8, units='cm')
 ```
 
 

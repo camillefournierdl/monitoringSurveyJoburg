@@ -5,4 +5,192 @@ date: "2025-06-27"
 output: html_document
 ---
 
+```{r setup}
 
+# ## clean environment
+# # rm(list = ls())
+# 
+# # Define which packages needed for analyses
+# p_needed <-
+#   c("tidyverse")
+# 
+# # Check which packages are already installed on your computer
+# packages <- rownames(installed.packages())
+# 
+# # Check which packages are not installed
+# p_to_install <- p_needed[!(p_needed %in% packages)]
+# 
+# if (length(p_to_install) > 0) {
+#   install.packages(p_to_install)
+# }
+# sapply(p_needed, require, character.only = TRUE)
+# 
+# 
+# # Set an option for the final document that can be produced from the .Rmd file.
+# knitr::opts_chunk$set(echo = TRUE)
+# 
+# ## For replicability: session information 
+# session_info <- print(sessionInfo())
+
+library(tidyverse)
+
+# Set an option for the final document that can be produced from the .Rmd file.
+knitr::opts_chunk$set(echo = TRUE)
+
+## For replicability: session information 
+session_info <- print(sessionInfo())
+
+```
+
+
+
+```{r load the data}
+"%ni%" = Negate("%in%")
+
+set.seed(123)
+
+dataJoburg <- read.csv("data/data_joh_person.csv")
+
+```
+
+
+
+```{r data cleaning}
+# filter out straightlining for the effect of more monitoring "More measurements would..."
+
+# Identify columns starting with "AM_effect"
+effect_cols <- grep("^AM_effect", names(dataJoburg), value = TRUE)
+
+# Calculate the row-wise standard deviation for these columns and filter out straightliners
+dataJoburgFilter2 <- dataJoburgFilter %>%
+  mutate(effect_sd = apply(select(., all_of(effect_cols)), 1, sd, na.rm = TRUE)) %>%
+  filter(effect_sd != 0) %>%
+  select(-effect_sd)
+
+dataJoburg <- dataJoburgFilter2
+
+```
+ 
+
+
+```{r figure policy pref}
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+library(scales)
+library(tidyr) # For pivot_longer
+
+# --- Step 1: Recode and factor all three policy variables ---
+recode_policy <- function(x) {
+  factor(recode(x,
+    `1` = "No",
+    `2` = "dot_1 ", # Ensure consistent spacing for internal names if they are part of the level string
+    `3` = "Maybe",
+    `4` = "dot_2  ", # Consistent spacing for internal names (note two spaces at end to differentiate from dot_1 )
+    `5` = "Yes"
+  ),
+  # Ensure these levels match the strings used in recode exactly, including spaces
+  levels = c("No", "dot_1 ", "Maybe", "dot_2  ", "Yes"),
+  ordered = TRUE
+  )
+}
+
+dataJoburg <- dataJoburg %>%
+  mutate(
+    AM_effect1_1F = recode_policy(AM_effect1_1),
+    AM_effect2_1F = recode_policy(AM_effect2_1),
+    AM_effect3_1F = recode_policy(AM_effect3_1),
+    AM_effect4_1F = recode_policy(AM_effect4_1),
+    AM_effect5_1F = recode_policy(AM_effect5_1)
+  )
+
+# --- Step 2: Pivot the data to long format and summarize ---
+# Select only the newly created _F columns for pivoting
+summary_data <- dataJoburg %>%
+  select(starts_with("AM_effect")) %>% # Selects all columns starting with "AM_effect" and ending with F
+                                          # Make sure this accurately captures your variables
+  pivot_longer(
+    cols = ends_with("F"), # Selects all columns ending with "F" for flexibility
+    names_to = "Question",
+    values_to = "Response_Category",
+    values_drop_na = TRUE
+  ) %>%
+  group_by(Question, Response_Category) %>%
+  summarise(obs_count = n(), .groups = "drop_last") %>% # Renamed 'count' to 'obs_count' to avoid conflict
+  mutate(share = obs_count / sum(obs_count)) %>%
+  ungroup() %>%
+  group_by(Question) %>% # Regroup by Question to apply cumulative sum per group
+  arrange(fct_rev(Response_Category)) %>% # IMPORTANT: Arrange by the factor order of Response_Category
+  mutate(
+    y_max = cumsum(share),
+    y_mid = y_max - (share / 2),
+    label_text = as.character(round(share * 100))
+  ) %>%
+  ungroup()
+
+# --- Step 3: Define the order and labels for the plot and legend ---
+# Labels for the LEGEND
+legend_labels_full <- c(
+  "No",
+  " ● ", # Consistent legend label for dot_1
+  "Maybe",
+  "  ●  ", # Consistent legend label for dot_2
+  "Yes"
+)
+
+# This should be the natural order of your factor levels from recode_policy
+fill_levels_defined_order <- levels(dataJoburg$AM_effect1_1F)
+
+# Define the custom labels for the Y-axis (Question labels after coord_flip)
+# IMPORTANT: Adjust 'levels' to the exact names of your `_F` variables
+# and 'labels' to their desired display names.
+summary_data$Question_Plot_Label <- factor(summary_data$Question,
+                                           levels = c("AM_effect1_1F", "AM_effect2_1F", "AM_effect3_1F", "AM_effect4_1F", "AM_effect5_1F"), # Customize this order
+                                           labels = c("Increase gvmt action", "Reduce air pollution", "Create too much info", "Help protect myself", "Pressure main polluters"), # Customize these labels
+                                           ordered = TRUE) %>%
+                                    fct_rev() # Reverse the order for plotting with coord_flip
+
+# --- Plotting the Horizontal Stacked Bar Plot with custom text positions ---
+p_stacked_fixed <- ggplot(summary_data, aes(x = Question_Plot_Label, y = share,
+                                             fill = Response_Category)) + 
+  geom_col(width = 0.6) +
+  geom_text(
+    aes(y = y_mid, label = label_text, color = "black"),
+    size = 3,
+    na.rm = FALSE
+  ) +
+  coord_flip() + # Rotate to horizontal
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(
+    values = brewer.pal(5, "BuPu"), # Consider if BuPu is ideal for "Disagree/Agree"
+    limits = rev(fill_levels_defined_order), # Reverse the order for the fill scale limits
+    labels = rev(legend_labels_full) # Also reverse the labels for the legend to match the plot
+  ) +
+  scale_color_identity() +
+  labs(
+    x = "",
+    y = "Percentage",
+    fill = "Response",
+    title = "More air quality measurements would..." # Generalize title
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    legend.title = element_blank(),
+    axis.text.y = element_text(size = 10, face = "bold"),
+    axis.text.x = element_text(size = 8),
+    axis.title.x = element_text(size = 9),
+    plot.title = element_text(size = 12, face = "bold")
+  )
+
+print(p_stacked_fixed)
+
+# Save the plot
+ggsave(plot = p_stacked_fixed, filename = paste("plots/aqm_impact_stacked.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
+
+```

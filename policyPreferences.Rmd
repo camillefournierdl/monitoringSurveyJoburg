@@ -64,17 +64,6 @@ dataJoburgFilter <- dataJoburg %>%
   filter(gov_sd != 0) %>%
   select(-gov_sd)
 
-# filter out sl for the effect of more monitoring "More measurements would..."
-
-# Identify columns starting with "AM_effect"
-effect_cols <- grep("^AM_effect", names(dataJoburg), value = TRUE)
-
-# Calculate the row-wise standard deviation for these columns and filter out straightliners
-dataJoburgFilter2 <- dataJoburgFilter %>%
-  mutate(effect_sd = apply(select(., all_of(effect_cols)), 1, sd, na.rm = TRUE)) %>%
-  filter(effect_sd != 0) %>%
-  select(-effect_sd)
-
 dataJoburg <- dataJoburgFilter2
 
 ```

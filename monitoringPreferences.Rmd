@@ -299,7 +299,7 @@ rank1_counts <- rank1_counts %>%
 rank1_counts$envir_tradeoff_cat <- factor(
   rank1_counts$envir_tradeoff,
   levels = c("2", "1"),  # reverse order
-  labels = c("Air pollution is the price we have to pay for more economic growth", "We should reduce air pollution even if this means less economic growth"),
+  labels = c("Air pollution is the price we\nhave to pay for more economic growth", "We should reduce air pollution even\nif this means less economic growth"),
   ordered = TRUE
 )
 

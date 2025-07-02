@@ -1,5 +1,7 @@
 ---
-title: "policyPreferences"
+title: "aqmImpact"
+author: "Jan Freihardt"
+date: "2025-06-27"
 output: html_document
 ---
 
@@ -52,22 +54,23 @@ dataJoburg <- read.csv("data/data_joh_person.csv")
 ```
 
 
-```{r data cleaning}
-# filter out straightlining for the policies "On days where air pollution is high..."
 
-# Identify columns starting with "AM_GovAction_S"
-gov_cols <- grep("^AM_GovAction_S", names(dataJoburg), value = TRUE)
+```{r data cleaning}
+# filter out straightlining for the effect of more monitoring "More measurements would..."
+
+# Identify columns starting with "AM_effect"
+effect_cols <- grep("^AM_effect", names(dataJoburg), value = TRUE)
 
 # Calculate the row-wise standard deviation for these columns and filter out straightliners
-dataJoburgFilter <- dataJoburg %>%
-  mutate(gov_sd = apply(select(., all_of(gov_cols)), 1, sd, na.rm = TRUE)) %>%
-  filter(gov_sd != 0) %>%
-  select(-gov_sd)
+dataJoburgFilter2 <- dataJoburgFilter %>%
+  mutate(effect_sd = apply(select(., all_of(effect_cols)), 1, sd, na.rm = TRUE)) %>%
+  filter(effect_sd != 0) %>%
+  select(-effect_sd)
 
 dataJoburg <- dataJoburgFilter2
 
 ```
-
+ 
 
 
 ```{r figure policy pref}
@@ -80,33 +83,31 @@ library(tidyr) # For pivot_longer
 # --- Step 1: Recode and factor all three policy variables ---
 recode_policy <- function(x) {
   factor(recode(x,
-    `1` = "Disagree",
+    `1` = "No",
     `2` = "dot_1 ", # Ensure consistent spacing for internal names if they are part of the level string
-    `3` = "Neither",
+    `3` = "Maybe",
     `4` = "dot_2  ", # Consistent spacing for internal names (note two spaces at end to differentiate from dot_1 )
-    `5` = "Agree"
+    `5` = "Yes"
   ),
   # Ensure these levels match the strings used in recode exactly, including spaces
-  levels = c("Disagree", "dot_1 ", "Neither", "dot_2  ", "Agree"),
+  levels = c("No", "dot_1 ", "Maybe", "dot_2  ", "Yes"),
   ordered = TRUE
   )
 }
 
 dataJoburg <- dataJoburg %>%
   mutate(
-    AM_GovAction_S1_1F = recode_policy(AM_GovAction_S1_1),
-    AM_GovAction_S2_1F = recode_policy(AM_GovAction_S2_1),
-    AM_GovAction_S3_1F = recode_policy(AM_GovAction_S3_1),
-    AM_GovAction_S4_1F = recode_policy(AM_GovAction_S4_1),
-    AM_GovAction_S5_1F = recode_policy(AM_GovAction_S5_1),
-    AM_GovAction_S6_1F = recode_policy(AM_GovAction_S6_1),
-    AM_GovAction_S7_1F = recode_policy(AM_GovAction_S7_1)
+    AM_effect1_1F = recode_policy(AM_effect1_1),
+    AM_effect2_1F = recode_policy(AM_effect2_1),
+    AM_effect3_1F = recode_policy(AM_effect3_1),
+    AM_effect4_1F = recode_policy(AM_effect4_1),
+    AM_effect5_1F = recode_policy(AM_effect5_1)
   )
 
 # --- Step 2: Pivot the data to long format and summarize ---
 # Select only the newly created _F columns for pivoting
 summary_data <- dataJoburg %>%
-  select(starts_with("AM_GovAction_S")) %>% # Selects all columns starting with "AM_GovAction_S" and ending with F
+  select(starts_with("AM_effect")) %>% # Selects all columns starting with "AM_effect" and ending with F
                                           # Make sure this accurately captures your variables
   pivot_longer(
     cols = ends_with("F"), # Selects all columns ending with "F" for flexibility
@@ -130,22 +131,22 @@ summary_data <- dataJoburg %>%
 # --- Step 3: Define the order and labels for the plot and legend ---
 # Labels for the LEGEND
 legend_labels_full <- c(
-  "Disagree",
+  "No",
   " ● ", # Consistent legend label for dot_1
-  "Neither",
+  "Maybe",
   "  ●  ", # Consistent legend label for dot_2
-  "Agree"
+  "Yes"
 )
 
 # This should be the natural order of your factor levels from recode_policy
-fill_levels_defined_order <- levels(dataJoburg$AM_GovAction_S1_1F)
+fill_levels_defined_order <- levels(dataJoburg$AM_effect1_1F)
 
 # Define the custom labels for the Y-axis (Question labels after coord_flip)
 # IMPORTANT: Adjust 'levels' to the exact names of your `_F` variables
 # and 'labels' to their desired display names.
 summary_data$Question_Plot_Label <- factor(summary_data$Question,
-                                           levels = c("AM_GovAction_S1_1F", "AM_GovAction_S2_1F", "AM_GovAction_S3_1F", "AM_GovAction_S4_1F", "AM_GovAction_S5_1F", "AM_GovAction_S6_1F", "AM_GovAction_S7_1F"), # Customize this order
-                                           labels = c("Send warning to phones", "Reduce traffic", "Ban old vehicles", "Close schools and unis", "Stop construction work", "Prohibit waste burning", "Make public transport free"), # Customize these labels
+                                           levels = c("AM_effect1_1F", "AM_effect2_1F", "AM_effect3_1F", "AM_effect4_1F", "AM_effect5_1F"), # Customize this order
+                                           labels = c("Increase gvmt action", "Reduce air pollution", "Create too much info", "Help protect myself", "Pressure main polluters"), # Customize these labels
                                            ordered = TRUE) %>%
                                     fct_rev() # Reverse the order for plotting with coord_flip
 
@@ -173,7 +174,7 @@ p_stacked_fixed <- ggplot(summary_data, aes(x = Question_Plot_Label, y = share,
     x = "",
     y = "Percentage",
     fill = "Response",
-    title = "On days when air pollution is bad, should the government..." # Generalize title
+    title = "More air quality measurements would..." # Generalize title
   ) +
   theme_minimal() +
   theme(
@@ -188,9 +189,8 @@ p_stacked_fixed <- ggplot(summary_data, aes(x = Question_Plot_Label, y = share,
 print(p_stacked_fixed)
 
 # Save the plot
-ggsave(plot = p_stacked_fixed, filename = paste("plots/policy_pref_stacked.png", sep = ""),
+ggsave(plot = p_stacked_fixed, filename = paste("plots/aqm_impact_stacked.png", sep = ""),
        dpi=600, width = 18, height = 10, units='cm')
 
 
 ```
-

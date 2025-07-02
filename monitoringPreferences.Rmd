@@ -31,6 +31,8 @@ output: html_document
 # session_info <- print(sessionInfo())
 
 library(tidyverse)
+library(scales)
+library(RColorBrewer)
 
 # Set an option for the final document that can be produced from the .Rmd file.
 knitr::opts_chunk$set(echo = TRUE)
@@ -263,5 +265,144 @@ p4 <- ggplot(rank1_counts, aes(x = reorder(item, -n), y = n, fill = item)) +
 ggsave(plot = p4, filename = paste("plots/priorityPlacementRank1_interaction.png", sep = ""),
        dpi=600, width = 21, height = 13, units='cm')
 
+```
+
+
+```{r figure interaction economic environment tradeoff}
+
+data_long <- dataJoburg %>%
+  pivot_longer(
+    cols = starts_with("AM_priority_source"),
+    names_to = "item",
+    values_to = "rank"
+  )
+
+# Count the frequency of rank 1 for each item
+rank1_counts <- data_long %>%
+  filter(!is.na(envir_tradeoff)) %>% 
+  group_by(envir_tradeoff) %>% 
+  filter(rank == 1) %>%
+  count(item)
+
+rank1_counts <- rank1_counts %>%
+  mutate(item = factor(
+    recode(item,
+           `AM_priority_source_1` = "roads",
+           `AM_priority_source_2` = "hospitals",
+           `AM_priority_source_3` = "schools",
+           `AM_priority_source_4` = "factories",
+           `AM_priority_source_5` = "residential areas"),
+    levels = c("factories", "residential areas", "hospitals", "schools", "roads")
+  ))
+
+rank1_counts$envir_tradeoff_cat <- factor(
+  rank1_counts$envir_tradeoff,
+  levels = c("2", "1"),  # reverse order
+  labels = c("Air pollution is the price we have to pay for more economic growth", "We should reduce air pollution even if this means less economic growth"),
+  ordered = TRUE
+)
+
+
+# Create a bar chart of the counts
+p5 <- ggplot(rank1_counts, aes(x = reorder(item, -n), y = n, fill = item)) +
+  geom_col() +
+  labs(
+    title = "Where do you think the City of Joburg should\nput technical devices to measure air pollution? - Most Common Rank 1",
+    x = "Where to set up monitors in priority?",
+    y = "Count of Rank 1",
+    fill = ""
+  )+
+  scale_fill_manual(values = brewer.pal(5, "BuPu"))+
+  facet_wrap(~envir_tradeoff_cat)+
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.7))
+
+ggsave(plot = p5, filename = paste("plots/priorityPlacementRank1_interactionTradeoff.png", sep = ""),
+       dpi=600, width = 21, height = 13, units='cm')
 
 ```
+
+```{r figure interaction placement tradeoff}
+
+dataJoburg_temp <- dataJoburg %>% 
+  filter(!is.na(AM_priority_exposure))
+
+dataJoburg_temp$envir_tradeoff_cat <- factor(
+  dataJoburg_temp$envir_tradeoff,
+  levels = c("2", "1"),  # reverse order
+  labels = c("Air pollution is the price we\nhave to pay for more economic growth", "We should reduce air pollution even\nif this means less economic growth"),
+  ordered = TRUE
+)
+
+dataJoburg_temp$AM_priority_exposure_cat <- factor(
+  dataJoburg_temp$AM_priority_exposure,
+  levels = c("2", "1"),  # reverse order
+  labels = c("Where pollution levels are high", "Where most people live"),
+  ordered = TRUE
+)
+
+table(dataJoburg_temp$envir_tradeoff_cat)
+table(dataJoburg_temp$AM_priority_exposure_cat)
+
+table(dataJoburg_temp$AM_priority_exposure_cat, dataJoburg_temp$envir_tradeoff_cat)
+
+summary_df <- dataJoburg_temp %>%
+  count(envir_tradeoff_cat, AM_priority_exposure_cat) %>%
+  group_by(envir_tradeoff_cat) %>%
+  mutate(
+    share  = n / sum(n),
+    # cumulative top of each segment
+    y_max  = cumsum(share),
+    # bottom of each segment
+    y_min  = y_max - share,
+    # middle of each segment
+    y_mid  = y_min + share / 2,
+    label  = percent(share, accuracy = 1),
+    text_color = ifelse(share > 0.5, "white", "black")
+  ) %>%
+  ungroup()
+
+# 2. Plot: one horizontal stacked bar per trade‐off category
+p6 <- ggplot(summary_df,
+       aes(x = envir_tradeoff_cat,
+           y = share,
+           fill = AM_priority_exposure_cat)) +
+  geom_col(width = 0.6) +
+  geom_text(
+    aes(y = y_mid,
+        label = label,
+        color = text_color),
+    size = 3,
+    na.rm = TRUE
+  ) +
+  coord_flip() +  # horizontal bars
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(
+    values = brewer.pal(3, "BuPu")[c(1, 3)],
+    limits = rev(levels(dataJoburg_temp$AM_priority_exposure_cat))
+  ) +
+  scale_color_identity() +  # use the precomputed text_color
+  labs(
+    x     = NULL,
+    y     = "Percentage",
+    fill  = "Response",
+    title = paste0(
+      "Where do you think the City of Joburg should put\n",
+      "these devices first to measure air pollution? Pick one of these:"
+    )
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position  = "top",
+    legend.title     = element_blank(),
+    axis.text.y      = element_text(size = 12),
+    panel.grid.major.y = element_blank()
+  )
+
+ggsave(plot = p6, filename = paste("plots/interactionTradeoffS.png", sep = ""),
+       dpi=600, width = 21, height = 13, units='cm')
+
+```
+

@@ -265,6 +265,7 @@ p4 <- ggplot(rank1_counts, aes(x = reorder(item, -n), y = n, fill = item)) +
 ggsave(plot = p4, filename = paste("plots/priorityPlacementRank1_interaction.png", sep = ""),
        dpi=600, width = 21, height = 13, units='cm')
 
+
 ```
 
 

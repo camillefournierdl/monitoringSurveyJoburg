@@ -24,24 +24,16 @@ output: html_document
 #   install.packages(p_to_install)
 # }
 # sapply(p_needed, require, character.only = TRUE)
-# 
-# 
-# # Set an option for the final document that can be produced from the .Rmd file.
-# knitr::opts_chunk$set(echo = TRUE)
-# 
+# # 
 # ## For replicability: session information 
 # session_info <- print(sessionInfo())
 
 library(tidyverse)
 
-# Set an option for the final document that can be produced from the .Rmd file.
-knitr::opts_chunk$set(echo = TRUE)
-
 ## For replicability: session information 
 session_info <- print(sessionInfo())
 
 ```
-
 
 
 ```{r load the data}
@@ -62,12 +54,12 @@ dataJoburg <- read.csv("data/data_joh_person.csv")
 effect_cols <- grep("^AM_effect", names(dataJoburg), value = TRUE)
 
 # Calculate the row-wise standard deviation for these columns and filter out straightliners
-dataJoburgFilter2 <- dataJoburgFilter %>%
+dataJoburgFilter <- dataJoburg %>%
   mutate(effect_sd = apply(select(., all_of(effect_cols)), 1, sd, na.rm = TRUE)) %>%
   filter(effect_sd != 0) %>%
   select(-effect_sd)
 
-dataJoburg <- dataJoburgFilter2
+dataJoburg <- dataJoburgFilter
 
 ```
  

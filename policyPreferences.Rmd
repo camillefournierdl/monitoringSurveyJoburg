@@ -22,18 +22,11 @@ output: html_document
 #   install.packages(p_to_install)
 # }
 # sapply(p_needed, require, character.only = TRUE)
-# 
-# 
-# # Set an option for the final document that can be produced from the .Rmd file.
-# knitr::opts_chunk$set(echo = TRUE)
-# 
+# # 
 # ## For replicability: session information 
 # session_info <- print(sessionInfo())
 
 library(tidyverse)
-
-# Set an option for the final document that can be produced from the .Rmd file.
-knitr::opts_chunk$set(echo = TRUE)
 
 ## For replicability: session information 
 session_info <- print(sessionInfo())
@@ -64,7 +57,7 @@ dataJoburgFilter <- dataJoburg %>%
   filter(gov_sd != 0) %>%
   select(-gov_sd)
 
-dataJoburg <- dataJoburgFilter2
+dataJoburg <- dataJoburgFilter
 
 ```
 

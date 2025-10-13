@@ -1,0 +1,312 @@
+---
+title: "mapRespondents"
+output: html_document
+---
+
+```{r setup}
+
+# ## clean environment
+# # rm(list = ls())
+# 
+# # Define which packages needed for analyses
+# p_needed <-
+#   c("tidyverse", "terra", "tidyterra", "ggrepel", "RColorBrewer")
+# 
+# # Check which packages are already installed on your computer
+# packages <- rownames(installed.packages())
+# 
+# # Check which packages are not installed
+# p_to_install <- p_needed[!(p_needed %in% packages)]
+# 
+# if (length(p_to_install) > 0) {
+#   install.packages(p_to_install)
+# }
+# sapply(p_needed, require, character.only = TRUE)
+# # 
+# ## For replicability: session information 
+# session_info <- print(sessionInfo())
+
+library(tidyverse)
+library(terra)
+library(tidyterra)
+library(ggrepel)
+library(RColorBrewer)
+
+## For replicability: session information 
+session_info <- print(sessionInfo())
+
+```
+
+```{r load the data}
+"%ni%" = Negate("%in%")
+
+set.seed(123)
+
+dataJoburg <- read.csv("data/data_joh_person_anon.csv")
+
+```
+
+```{r data cleaning}
+# filter out straightlining for the policies "On days where air pollution is high..."
+
+# Identify columns starting with "AM_GovAction_S"
+gov_cols <- grep("^AM_GovAction_S", names(dataJoburg), value = TRUE)
+
+# Calculate the row-wise standard deviation for these columns and filter out straightliners
+dataJoburgFilter <- dataJoburg %>%
+  mutate(gov_sd = apply(select(., all_of(gov_cols)), 1, sd, na.rm = TRUE)) %>%
+  filter(gov_sd != 0) %>%
+  select(-gov_sd)
+
+dataJoburg <- dataJoburgFilter
+
+```
+
+
+```{r simple map}
+
+linkSA <- read.csv("revisions/linkSA.csv", sep= ";")
+
+# link small area nb to its name
+
+dataJoburgSA <- merge(dataJoburg, linkSA, by.x = "study_area_sa", by.y = "Numeric.code", all.x=T , all.y=F)
+
+table(dataJoburgSA$Label)
+
+dataJoburgSAToMerge <- dataJoburgSA %>% 
+  select(Label, study_area_sa)
+
+# here could fill in missing SAs
+
+# merge with spatial SA
+
+datasetTerra <- vect("revisions/dataCensus/everythingJoburgSP.gpkg")
+
+datasetTerraMerged <- merge(datasetTerra, dataJoburgSAToMerge, by.x = "SP_NAME", by.y = "Label", all.x=T)
+
+datasetTerraMergedSub <- subset(datasetTerraMerged, !is.na(datasetTerraMerged$study_area_sa))
+
+plot(datasetTerraMergedSub)
+
+dataJoburgSP <- vect(dataJoburg, geom=c("LocationLongitude", "LocationLatitude"), crs = crs(datasetTerraMergedSub), keepgeom=FALSE)
+
+mainPlaces <- vect("revisions/dataCensus/MP_SA_2011.shp")
+
+mainPlaces <- subset(mainPlaces, mainPlaces$DC_NAME == "City of Johannesburg")
+
+idx <- is.related(mainPlaces, dataJoburgSP, "covers")
+mainPlacesSubset <- mainPlaces[idx]
+
+# Compute centroids
+centroids <- centroids(mainPlacesSubset)
+centroids_df <- as.data.frame(centroids, geom = "XY")  # Convert to a data frame for ggplot
+
+## add monitors
+monitors <- vect(read.csv("revisions/globalCountryIDOpenAQ_v3_1310_ZA.csv"), geom=c("longitude", "latitude"), crs = crs(mainPlaces))
+
+# extent of the area of interest and expand it slightly ---
+e <- ext(mainPlaces)            # terra::ext
+xmin <- xmin(e); xmax <- xmax(e)
+ymin <- ymin(e); ymax <- ymax(e)
+
+# expand by percentage of extent (5%)
+pad_pct <- 0.05                 
+pad_x <- (xmax - xmin) * pad_pct
+pad_y <- (ymax - ymin) * pad_pct
+
+newext <- ext(xmin - pad_x, xmax + pad_x, ymin - pad_y, ymax + pad_y)
+
+# monitorsJBRG <- crop(monitors, mainPlaces)
+
+ext_poly <- as.polygons(newext)       # SpatVector polygon
+monitorsJBRG <- intersect(monitors, ext_poly)
+
+p1 <- ggplot() +
+  geom_spatvector(data = mainPlaces, color = "black", fill = "white") +
+  geom_spatvector(data = mainPlacesSubset, fill = "lightblue") +
+  geom_spatvector(data = monitorsJBRG, col = "darkred", alpha = 1, size = 3, shape = 17) +
+  geom_spatvector(data = dataJoburgSP, col = "steelblue", alpha = 0.3, size = 2) +
+  geom_label_repel(data = centroids_df, aes(x = x, y = y, label = MP_NAME), size = 3, color = "black", max.overlaps = 30, box.padding = 1.2, alpha = 1 ) +
+  scale_fill_distiller(palette = "Reds", direction = -1) +
+  theme_void() +
+  theme(legend.position = "none")
+
+p1
+
+# ggsave(plot = p1, filename = paste("revisions/mapJoburgMP.png", sep = ""),
+#        dpi=600, width = 22, height = 16, units='cm')
+
+# we still have 398 respondents for which we dont have exact coordinates, but coverage should look the same, there's no systematic reason why the tablets didn't register the lon/lat
+
+```
+
+
+```{r map with income levels}
+
+mainPlaces <- vect("revisions/dataCensus/WD_SA_2011.shp")
+
+dataset <- vect("revisions/dataCensus/everythingJoburgv2.gpkg")
+dataset_df <- as.data.frame(dataset)
+
+outlineCity <- vect("revisions/dataCensus/DC_SA_2011.shp")
+
+outlineCity <- subset(outlineCity, outlineCity$DC_NAME == "City of Johannesburg")
+crs(outlineCity) <- crs(dataset)
+
+crs(mainPlaces) <- crs(dataset)
+
+dataset <- crop(dataset, outlineCity)
+
+mainPlaces <- crop(mainPlaces, outlineCity)
+
+# --- 4) intersect small polygons with admin polygons
+# This will slice small polygons where they overlap admins and bring the adm_id into the pieces
+ints <- intersect(dataset, mainPlaces)   # result contains attributes from both layers
+
+ints_df <- as.data.frame(ints)
+
+mean_by_admin <- ints_df %>% 
+  group_by(WARD_ID) %>% 
+  summarize(avgIncome = mean(median_income, na.rm=T))
+
+mainPlacesInc <- merge(mainPlaces, mean_by_admin, by = "WARD_ID")
+
+plot(mainPlacesInc)
+
+medianIncomeValue <- median(dataset$median_income, na.rm=T)
+medianIncomeValue2 <- median(mainPlacesInc$avgIncome, na.rm=T)
+
+mainPlacesIncSub <- subset(mainPlacesInc, mainPlacesInc$avgIncome <= medianIncomeValue)
+
+mainPlacesInc$incomeLvl <- cut(mainPlacesInc$avgIncome, 
+                       breaks = quantile(mainPlacesInc$avgIncome, probs = round(seq(0, 1, 1/10), 2), na.rm = TRUE),
+                       labels = c("0-10%", "10-20%", "20-30%", "30-40%", "40-50%", "50-60%", "60-70%", "70-80%", "80-90%", "90-100%"),
+                       include.lowest = TRUE)
+
+mainPlacesIncSub$incomeLvl <- cut(mainPlacesIncSub$avgIncome, 
+                       breaks = quantile(mainPlacesIncSub$avgIncome, probs = round(seq(0, 1, 1/5), 2), na.rm = TRUE),
+                       labels = c("0-10%", "10-20%", "20-30%", "30-40%", "40-50%"),
+                       include.lowest = TRUE)
+
+blues10 <- colorRampPalette(brewer.pal(9, "Blues"))(10)
+
+ggplot() +
+  geom_spatvector(data = mainPlacesInc, aes(fill = incomeLvl)) +
+  geom_spatvector(data = outlineCity, color = "black", fill = NA) +
+  scale_fill_manual(values = blues10)+
+  labs(fill = "Income Level") +
+  theme_minimal()+
+  theme(legend.position = "bottom")
+
+### now link to the rest of the datasets
+linkSA <- read.csv("revisions/linkSA.csv", sep= ";")
+
+# link small area nb to its name
+
+dataJoburgSA <- merge(dataJoburg, linkSA, by.x = "study_area_sa", by.y = "Numeric.code", all.x=T , all.y=F)
+
+table(dataJoburgSA$Label)
+
+dataJoburgSAToMerge <- dataJoburgSA %>% 
+  select(Label, study_area_sa)
+
+# here could fill in missing SPs
+
+# merge with spatial SP
+
+datasetTerra <- vect("revisions/dataCensus/everythingJoburgSP.gpkg") # small places
+
+datasetTerraMerged <- merge(datasetTerra, dataJoburgSAToMerge, by.x = "SP_NAME", by.y = "Label", all.x=T)
+
+datasetTerraMergedSub <- subset(datasetTerraMerged, !is.na(datasetTerraMerged$study_area_sa))
+
+plot(datasetTerraMergedSub)
+
+dataJoburgSP <- vect(dataJoburg, geom=c("LocationLongitude", "LocationLatitude"), crs = crs(datasetTerraMergedSub), keepgeom=FALSE)
+
+mainPlaces <- mainPlacesInc
+
+idx <- is.related(mainPlaces, dataJoburgSP, "covers")
+mainPlacesSubset <- mainPlaces[idx]
+
+# Compute centroids
+centroids <- centroids(mainPlacesSubset)
+centroids_df <- as.data.frame(centroids, geom = "XY")  # Convert to a data frame for ggplot
+
+## add monitors
+monitors <- vect(read.csv("revisions/globalCountryIDOpenAQ_v3_1310_ZA.csv"), geom=c("longitude", "latitude"), crs = crs(mainPlaces))
+
+# extent of the area of interest and expand it slightly ---
+e <- ext(mainPlaces)            # terra::ext
+xmin <- xmin(e); xmax <- xmax(e)
+ymin <- ymin(e); ymax <- ymax(e)
+
+# expand by percentage of extent (5%)
+pad_pct <- 0.05                 
+pad_x <- (xmax - xmin) * pad_pct
+pad_y <- (ymax - ymin) * pad_pct
+
+newext <- ext(xmin - pad_x, xmax + pad_x, ymin - pad_y, ymax + pad_y)
+
+# monitorsJBRG <- crop(monitors, mainPlaces)
+
+ext_poly <- as.polygons(newext)       # SpatVector polygon
+monitorsJBRG <- intersect(monitors, ext_poly)
+
+# p1 <- ggplot() +
+#   geom_spatvector(data = mainPlacesInc, aes(fill = incomeLvl), alpha = 0.9) +
+#   geom_spatvector(data = outlineCity, color = "black", fill = NA) +
+#   scale_fill_manual(values = blues10)+
+#   # geom_spatvector(data = mainPlacesSubset, fill = "lightblue") +
+#   geom_spatvector(data = monitorsJBRG, col = "darkred", alpha = 1, size = 3, shape = 17) +
+#   geom_spatvector(data = dataJoburgSP, col = "black", alpha = 0.1, size = 2) +
+#   # geom_label_repel(data = centroids_df, aes(x = x, y = y, label = MP_NAME), size = 3, color = "black", max.overlaps = 30, box.padding = 1.2, alpha = 1 ) +
+#   theme_void() +
+#   labs(fill = "Income level decile")
+#   # theme(legend.position = "none")
+# 
+# p1
+# 
+# ggsave(plot = p1, filename = paste("revisions/mapJoburgMP.png", sep = ""),
+#        dpi=600, width = 22, height = 16, units='cm')
+
+p1 <- ggplot() +
+  geom_spatvector(data = mainPlacesInc, aes(fill = incomeLvl), alpha = 0.9) +
+  geom_spatvector(data = outlineCity, color = "black", fill = NA) +
+  # points you want in the legend: give them constant labels via aes()
+  geom_spatvector(
+    data = monitorsJBRG,
+    aes(shape = "Monitoring site (OpenAQ)", color = "Monitoring site (OpenAQ)"),
+    size = 4, alpha = 1
+  ) +
+  geom_spatvector(
+    data = dataJoburgSP,
+    aes(shape = "Respondent", color = "Respondent"),
+    size = 2, alpha = 0.2
+  ) +
+  # scales
+  scale_fill_manual(values = blues10, name = "Income level decile") +
+  scale_shape_manual(
+    name = "Location",
+    values = c("Monitoring site (OpenAQ)" = 17, "Respondent" = 19)
+  ) +
+  scale_color_manual(
+    name = "Location",
+    values = c("Monitoring site (OpenAQ)" = "darkred", "Respondent" = "black")
+  ) +
+  theme_void()+
+  guides(fill = guide_legend(order=2),
+         shape = guide_legend(override.aes = list(size = 3, alpha = 1, order = 1)))
+
+p1
+
+ggsave(plot = p1, filename = paste("revisions/mapJoburgWD.png", sep = ""),
+       dpi=600, width = 22, height = 16, units='cm')
+
+# we still have 398 respondents for which we dont have exact coordinates, but coverage should look the same, there's no systematic reason why the tablets didn't register the lon/lat
+
+```
+
+
+
+

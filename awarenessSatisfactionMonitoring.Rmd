@@ -23,25 +23,16 @@ output: html_document
 #   install.packages(p_to_install)
 # }
 # sapply(p_needed, require, character.only = TRUE)
-# 
-# 
-# # Set an option for the final document that can be produced from the .Rmd file.
-# knitr::opts_chunk$set(echo = TRUE)
-# 
+# # 
 # ## For replicability: session information 
 # session_info <- print(sessionInfo())
 
 library(tidyverse)
 
-# Set an option for the final document that can be produced from the .Rmd file.
-knitr::opts_chunk$set(echo = TRUE)
-
 ## For replicability: session information 
 session_info <- print(sessionInfo())
 
 ```
-
-
 
 
 ```{r load the data}
@@ -52,7 +43,6 @@ set.seed(123)
 dataJoburg <- read.csv("data/data_joh_person.csv")
 
 ```
-
 
 
 ```{r data cleaning}

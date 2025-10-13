@@ -102,7 +102,10 @@ centroids <- centroids(mainPlacesSubset)
 centroids_df <- as.data.frame(centroids, geom = "XY")  # Convert to a data frame for ggplot
 
 ## add monitors
-monitors <- vect(read.csv("revisions/globalCountryIDOpenAQ_v3_1310_ZA.csv"), geom=c("longitude", "latitude"), crs = crs(mainPlaces))
+monitorsDF <- read.csv("revisions/globalCountryIDOpenAQ_v3_1310_ZA.csv")
+monitorsDF <- subset(monitorsDF, lastUpdated > "2024" & isMonitor == "True")
+
+monitors <- vect(monitorsDF, geom=c("longitude", "latitude"), crs = crs(mainPlaces))
 
 # extent of the area of interest and expand it slightly ---
 e <- ext(mainPlaces)            # terra::ext
@@ -234,7 +237,10 @@ centroids <- centroids(mainPlacesSubset)
 centroids_df <- as.data.frame(centroids, geom = "XY")  # Convert to a data frame for ggplot
 
 ## add monitors
-monitors <- vect(read.csv("revisions/globalCountryIDOpenAQ_v3_1310_ZA.csv"), geom=c("longitude", "latitude"), crs = crs(mainPlaces))
+monitorsDF <- read.csv("revisions/globalCountryIDOpenAQ_v3_1310_ZA.csv")
+monitorsDF <- subset(monitorsDF, lastUpdated > "2024" & isMonitor == "True")
+
+monitors <- vect(monitorsDF, geom=c("longitude", "latitude"), crs = crs(mainPlaces))
 
 # extent of the area of interest and expand it slightly ---
 e <- ext(mainPlaces)            # terra::ext
@@ -307,6 +313,19 @@ ggsave(plot = p1, filename = paste("revisions/mapJoburgWD.png", sep = ""),
 
 ```
 
+```{r calculate distance to nearest monitor}
+
+crs(monitorsJBRG) <- crs(dataJoburgSP)
+
+idx <- nearest(dataJoburgSP, monitorsJBRG)          # integer vector, length nrow(A)
+
+distances <- data.frame(idQualtrix = dataJoburgSP$X,
+                        idIDX = idx$from_id,
+                        distanceNearestM = idx$distance)
+
+write.csv(distances, "revisions/distanceToAQM.csv", row.names = F)
+
+```
 
 
 

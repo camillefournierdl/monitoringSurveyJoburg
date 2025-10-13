@@ -11,7 +11,7 @@ output: html_document
 # 
 # # Define which packages needed for analyses
 # p_needed <-
-#   c("tidyverse")
+#   c("tidyverse", "RColorBrewer", "scales")
 # 
 # # Check which packages are already installed on your computer
 # packages <- rownames(installed.packages())
@@ -28,6 +28,8 @@ output: html_document
 # session_info <- print(sessionInfo())
 
 library(tidyverse)
+library(RColorBrewer)
+library(scales)
 
 ## For replicability: session information 
 session_info <- print(sessionInfo())
@@ -40,7 +42,7 @@ session_info <- print(sessionInfo())
 
 set.seed(123)
 
-dataJoburg <- read.csv("data/data_joh_person.csv")
+dataJoburg <- read.csv("data/data_joh_person_anon.csv")
 
 ```
 
@@ -74,8 +76,6 @@ dataJoburg <- dataJoburgFilter2
 
 
 ```{r figure knowledge}
-library(RColorBrewer)
-library(scales)
 
 dataJoburg <- dataJoburg %>%
   mutate(AM_Knowlg_1F = factor(recode(AM_Knowlg_1,
@@ -114,10 +114,6 @@ knowledge <- knowledge %>%
     )
   )
   
-#-------------------------------------------------------------------------------
-# Plot distribution per city
-#-------------------------------------------------------------------------------
-
 ## reverse ordering for the plot
 knowledge$AM_Knowlg_1_cat <- factor(
   knowledge$AM_Knowlg_1,
@@ -180,10 +176,6 @@ freqJ <- freqJ %>%
     )
   )
   
-#-------------------------------------------------------------------------------
-# Plot distribution per city
-#-------------------------------------------------------------------------------
-
 ## reverse ordering for the plot
 freqJ$AM_Freq_cat <- factor(
   freqJ$AM_Freq,
@@ -227,6 +219,7 @@ ggsave(plot = p2, filename = paste("plots/informationFreq.png", sep = ""),
 
 
 ```{r figure satisfaction}
+
 ## summarise
 satisfaction <- dataJoburg %>%
   filter(!is.na(AM_Perc)) %>% 
@@ -244,10 +237,6 @@ satisfaction <- satisfaction %>%
     )
   )
   
-#-------------------------------------------------------------------------------
-# Plot distribution per city
-#-------------------------------------------------------------------------------
-
 ## reverse ordering for the plot
 satisfaction$AM_Perc_cat <- factor(
   satisfaction$AM_Perc,

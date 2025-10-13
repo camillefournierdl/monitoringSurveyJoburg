@@ -1,0 +1,580 @@
+---
+title: "extraAnalysis"
+output: html_document
+---
+
+```{r setup}
+
+# ## clean environment
+# # rm(list = ls())
+# 
+# # Define which packages needed for analyses
+# p_needed <-
+#   c("tidyverse", "RColorBrewer", "scales")
+# 
+# # Check which packages are already installed on your computer
+# packages <- rownames(installed.packages())
+# 
+# # Check which packages are not installed
+# p_to_install <- p_needed[!(p_needed %in% packages)]
+# 
+# if (length(p_to_install) > 0) {
+#   install.packages(p_to_install)
+# }
+# sapply(p_needed, require, character.only = TRUE)
+# # 
+# ## For replicability: session information 
+# session_info <- print(sessionInfo())
+
+library(tidyverse)
+library(RColorBrewer)
+library(scales)
+
+## For replicability: session information 
+session_info <- print(sessionInfo())
+
+```
+
+
+```{r load the data}
+"%ni%" = Negate("%in%")
+
+set.seed(123)
+
+dataJoburg <- read.csv("data/data_joh_person_anon.csv")
+
+```
+
+
+```{r data cleaning}
+# filter out straightlining for the policies "On days where air pollution is high..."
+
+# Identify columns starting with "AM_GovAction_S"
+gov_cols <- grep("^AM_GovAction_S", names(dataJoburg), value = TRUE)
+
+# Calculate the row-wise standard deviation for these columns and filter out straightliners
+dataJoburgFilter <- dataJoburg %>%
+  mutate(gov_sd = apply(select(., all_of(gov_cols)), 1, sd, na.rm = TRUE)) %>%
+  filter(gov_sd != 0) %>%
+  select(-gov_sd)
+
+# filter out sl for the effect of more monitoring "More measurements would..."
+
+# Identify columns starting with "AM_effect"
+effect_cols <- grep("^AM_effect", names(dataJoburg), value = TRUE)
+
+# Calculate the row-wise standard deviation for these columns and filter out straightliners
+dataJoburgFilter2 <- dataJoburgFilter %>%
+  mutate(effect_sd = apply(select(., all_of(effect_cols)), 1, sd, na.rm = TRUE)) %>%
+  filter(effect_sd != 0) %>%
+  select(-effect_sd)
+
+dataJoburg <- dataJoburgFilter2
+
+dataJoburg <- subset(dataJoburg, quota_gender.0 %in% c(1,2))
+dataJoburg <- subset(dataJoburg, !is.na(quota_gender.0))
+
+dataJoburg$gender <- ifelse(dataJoburg$quota_gender.0 == 1, "male",
+                            "female")
+
+# add distance to nearest monitor
+distances <- read.csv("revisions/distanceToAQM.csv")
+
+dataJoburg <- merge(dataJoburg, distances, by.x = "X", by.y = "idQualtrix", all.x = T)
+
+```
+
+```{r knowledge}
+
+dataJoburg <- dataJoburg %>%
+  mutate(AM_Knowlg_1F = factor(recode(AM_Knowlg_1,
+                                  `1` = "Would not know",
+                                  `2` = " ",
+                                  `3` = "Perhaps",
+                                  `4` = "  ",
+                                  `5` = "Would know"),
+                               levels = c("Would not know", " ", "Perhaps", "  ", "Would know"),
+                               ordered = TRUE))
+
+dataJoburg$age_group_cat <- ifelse(dataJoburg$quota_age_ == "1", "18-29",
+                                 ifelse(dataJoburg$quota_age_ == "2", "30-39",
+                                        ifelse(dataJoburg$quota_age_ == "3", "40-49",
+                                               ifelse(dataJoburg$quota_age_ == "4", "50-60", NA))))
+
+dataJoburg %>%
+  filter(!is.na(AM_Knowlg_1F)) %>%
+  ggplot(aes(x = AM_Knowlg_1F))+
+  labs(x = "If you would want to know how much air pollution there is in Johannesburg,\nwould you know or not know where to find this information?")+
+  geom_histogram(stat = "count", binwidth = 1, col = "black", fill = "white")+
+  theme_minimal()
+
+
+### horizontal, nicer looking graphs for first descriptive questions
+
+## summarise
+# 1) counts + within-age percentages
+knowledge <- dataJoburg %>%
+  filter(!is.na(AM_Knowlg_1), !is.na(age_group_cat)) %>% 
+  group_by(age_group_cat, AM_Knowlg_1) %>%
+  summarise(count = n(), .groups = "drop_last") %>%
+  group_by(age_group_cat) %>%
+  mutate(
+    share = count / sum(count),
+    label = round(share * 100)
+  ) %>%
+  ungroup()
+
+# 2) text color per response category
+knowledge <- knowledge %>%
+  mutate(
+    text_color = case_when(
+      AM_Knowlg_1 %in% c("5", "4") ~ "lightgrey",
+      TRUE                        ~ "grey28"
+    )
+  )
+
+# 3) ordered/relabeled factor for plotting
+knowledge <- knowledge %>%
+  mutate(
+    AM_Knowlg_1_cat = factor(
+      AM_Knowlg_1,
+      levels = c("5", "4", "3", "2", "1"),
+      labels = c("Would know", "   ●   ", "Perhaps", "  ●  ", "Would not know"),
+      ordered = TRUE
+    )
+  )
+
+# 4) plot: 100% stacked bars per age group
+p1 <- ggplot(knowledge, aes(x = age_group_cat, y = share, fill = AM_Knowlg_1_cat)) +
+  geom_col(width = 0.6) +
+  geom_text(
+    aes(
+      # show %; or keep `label` if you prefer integers
+      label = paste0(round(share * 100)),
+      group = AM_Knowlg_1_cat,   # <- key: align text with the stacked groups
+      color = text_color
+    ),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    na.rm = TRUE
+  ) +
+  scale_color_identity() +
+  coord_flip() +
+  scale_y_continuous(
+    labels = scales::percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(
+    values = RColorBrewer::brewer.pal(5, "BuPu"),
+    limits = rev(c("Would know", "   ●   ", "Perhaps", "  ●  ", "Would not know"))
+  ) +
+  labs(
+    x = "",
+    y = "Percentage (within age group)",
+    fill = "Response",
+    title = "If you wanted to know how much air pollution there is in Johannesburg,\nwould you know where to find this information? (by age group)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    legend.title = element_blank()
+  )
+
+p1
+
+ggsave(plot = p1, filename = paste("revisions/plots/knowledgeAge.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
+lm(AM_Knowlg_1~quota_age_ + quota_education + gender + distanceNearestM, data = dataJoburg) %>% summary(.)
+
+```
+
+```{r knowledgeDistance}
+
+dataJoburg <- dataJoburg %>%
+  mutate(
+    distance_group = case_when(
+      distanceNearestM < 2500              ~ "<2500 m",
+      distanceNearestM < 5000 & distanceNearestM > 2500              ~ "<5 km",
+      distanceNearestM >= 5000             ~ "≥5 km",
+      TRUE                         ~ NA_character_
+    ),
+    distance_group = factor(distance_group, levels = c("<2500 m", "<5 km","≥5 km"), ordered = TRUE)
+  )
+
+# 1) counts + within-distance percentages
+knowledge <- dataJoburg %>%
+  filter(!is.na(AM_Knowlg_1), !is.na(distance_group)) %>% 
+  group_by(distance_group, AM_Knowlg_1) %>%
+  summarise(count = n(), .groups = "drop_last") %>%
+  group_by(distance_group) %>%
+  mutate(
+    share = count / sum(count),
+    label = round(share * 100)
+  ) %>%
+  ungroup()
+
+# 2) text color per response category
+knowledge <- knowledge %>%
+  mutate(
+    text_color = case_when(
+      AM_Knowlg_1 %in% c("5", "4") ~ "lightgrey",
+      TRUE                         ~ "grey28"
+    ),
+    # 3) ordered/relabeled factor for plotting
+    AM_Knowlg_1_cat = factor(
+      AM_Knowlg_1,
+      levels = c("5", "4", "3", "2", "1"),
+      labels = c("Would know", "   ●   ", "Perhaps", "  ●  ", "Would not know"),
+      ordered = TRUE
+    )
+  )
+
+# 4) plot: 100% stacked bars by distance group
+pDis <- ggplot(knowledge, aes(x = distance_group, y = share, fill = AM_Knowlg_1_cat)) +
+  geom_col(width = 0.6) +
+  geom_text(
+    aes(
+      label = label,                 # or paste0(label, "%")
+      group = AM_Knowlg_1_cat,       # align labels with stacks
+      color = text_color
+    ),
+    position = position_stack(vjust = 0.5),
+    size = 3, na.rm = TRUE
+  ) +
+  scale_color_identity() +
+  coord_flip() +
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(
+    values = RColorBrewer::brewer.pal(5, "BuPu"),
+    limits = rev(c("Would know", "   ●   ", "Perhaps", "  ●  ", "Would not know"))
+  ) +
+  labs(
+    x = "",
+    y = "Percentage (within distance group)",
+    fill = "Response",
+    title = "If you wanted to know how much air pollution there is in Johannesburg,\nwould you know where to find this information? (by distance to monitor)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    legend.title = element_blank()
+  )
+
+pDis
+
+ggsave(plot = pDis, filename = paste("revisions/plots/knowledgeDistance.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
+
+```
+
+
+```{r frequencyInfo}
+
+# 1) counts + within-age percentages
+freqJ <- dataJoburg %>%
+  filter(!is.na(AM_Freq), !is.na(age_group_cat)) %>% 
+  group_by(age_group_cat, AM_Freq) %>%
+  summarise(count = n(), .groups = "drop_last") %>%
+  group_by(age_group_cat) %>%
+  mutate(
+    share = count / sum(count),
+    label = round(share * 100)
+  ) %>%
+  ungroup() %>%
+  # 2) text color per response category
+  mutate(
+    text_color = case_when(
+      AM_Freq %in% c("3") ~ "lightgrey",  # light text for darkest fill
+      TRUE                ~ "grey28"
+    ),
+    # 3) ordered/relabeled factor for plotting
+    AM_Freq_cat = factor(
+      AM_Freq,
+      levels = c("3", "2", "1"),
+      labels = c("Often", "Rarely", "Never"),
+      ordered = TRUE
+    )
+  )
+
+# 4) plot: 100% stacked bars per age group
+p2 <- ggplot(freqJ, aes(x = age_group_cat, y = share, fill = AM_Freq_cat)) +
+  geom_col(width = 0.6) +
+  geom_text(
+    aes(
+      label = label,              # or paste0(label, "%") if you want the % sign
+      group = AM_Freq_cat,        # <- keeps labels centered in their stack
+      color = text_color
+    ),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    na.rm = TRUE
+  ) +
+  scale_color_identity() +
+  coord_flip() +
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(
+    values = brewer.pal(3, "BuPu"),
+    limits = rev(c("Often", "Rarely", "Never"))
+  ) +
+  labs(
+    x = "",
+    y = "Percentage (within age group)",
+    fill = "Response",
+    title = "How often or not do you look up information on air pollution in Johannesburg? (by age group)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    legend.title = element_blank()
+  )
+
+p2
+
+lm(AM_Freq~quota_age_ + quota_education + gender + distanceNearestM, data = dataJoburg) %>% summary(.)
+
+ggsave(plot = p2, filename = paste("revisions/plots/frequencyAge.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
+```
+
+
+```{r frequencyDistance}
+
+dataJoburg <- dataJoburg %>%
+  mutate(
+    distance_group = case_when(
+      distanceNearestM < 2500              ~ "<2500 m",
+      distanceNearestM < 5000 & distanceNearestM > 2500              ~ "<5 km",
+      distanceNearestM >= 5000             ~ "≥5 km",
+      TRUE                         ~ NA_character_
+    ),
+    distance_group = factor(distance_group, levels = c("<2500 m", "<5 km","≥5 km"), ordered = TRUE)
+  )
+
+freqJ <- dataJoburg %>%
+  filter(!is.na(AM_Freq), !is.na(distance_group)) %>% 
+  group_by(distance_group, AM_Freq) %>%
+  summarise(count = n(), .groups = "drop_last") %>%
+  group_by(distance_group) %>%
+  mutate(
+    share = count / sum(count),
+    label = round(share * 100)
+  ) %>%
+  ungroup() %>%
+  # 2) text color per response category
+  mutate(
+    text_color = case_when(
+      AM_Freq %in% c("3") ~ "lightgrey",  # light text for darkest fill
+      TRUE                ~ "grey28"
+    ),
+    # 3) ordered/relabeled factor for plotting
+    AM_Freq_cat = factor(
+      AM_Freq,
+      levels = c("3", "2", "1"),
+      labels = c("Often", "Rarely", "Never"),
+      ordered = TRUE
+    )
+  )
+
+
+# 4) plot: 100% stacked bars by distance group
+pDis <- ggplot(freqJ, aes(x = distance_group, y = share, fill = AM_Freq_cat)) +
+  geom_col(width = 0.6) +
+  geom_text(
+    aes(
+      label = label,                 # or paste0(label, "%")
+      group = AM_Freq_cat,       # align labels with stacks
+      color = text_color
+    ),
+    position = position_stack(vjust = 0.5),
+    size = 3, na.rm = TRUE
+  ) +
+  scale_color_identity() +
+  coord_flip() +
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(
+      values = brewer.pal(3, "BuPu"),
+      limits = rev(c("Often", "Rarely", "Never"))
+    ) +  labs(
+    x = "",
+    y = "Percentage (within distance group)",
+    fill = "Response",
+    title = "How often or not do you look up information on air pollution in Johannesburg? (by distance to monitor)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    legend.title = element_blank()
+  )
+
+pDis
+
+ggsave(plot = pDis, filename = paste("revisions/plots/frequencyDistance.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
+
+```
+
+
+
+
+```{r satisfaction}
+
+# 1) counts + within-age percentages
+satisfaction <- dataJoburg %>%
+  filter(!is.na(AM_Perc), !is.na(age_group_cat)) %>% 
+  group_by(age_group_cat, AM_Perc) %>%
+  summarise(count = n(), .groups = "drop_last") %>%
+  group_by(age_group_cat) %>%
+  mutate(
+    share = count / sum(count),
+    label = round(share * 100)
+  ) %>%
+  ungroup() %>%
+  # 2) text color + factor relabel
+  mutate(
+    text_color = case_when(
+      AM_Perc %in% c("3") ~ "lightgrey",   # light text for darkest fill
+      TRUE                ~ "grey28"
+    ),
+    AM_Perc_cat = factor(
+      AM_Perc,
+      levels = c("3", "2", "1"),           # reverse order
+      labels = c("Good job", "Moderate job", "Bad job"),
+      ordered = TRUE
+    )
+  )
+
+# 3) plot: 100% stacked bars per age group
+p3 <- ggplot(satisfaction, aes(x = age_group_cat, y = share, fill = AM_Perc_cat)) +
+  geom_col(width = 0.6) +
+  geom_text(
+    aes(
+      label = label,              # or paste0(label, "%") for the % sign
+      group = AM_Perc_cat,        # keep labels centered on their stack
+      color = text_color
+    ),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    na.rm = TRUE
+  ) +
+  scale_color_identity() +
+  coord_flip() +
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(
+    values = brewer.pal(3, "BuPu"),
+    limits = rev(c("Good job", "Moderate job", "Bad job"))
+  ) +
+  labs(
+    x = "",
+    y = "Percentage (within age group)",
+    fill = "Response",
+    title = "In your view, has the city government of Johannesburg done a good job or bad job\nin informing people about air pollution? (by age group)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    legend.title = element_blank()
+  )
+
+p3
+
+ggsave(plot = p3, filename = paste("revisions/plots/satisfactionAge.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
+lm(AM_Perc~quota_age_ + quota_education + gender + distanceNearestM, data = dataJoburg) %>% summary(.)
+
+```
+
+```{r satisfactionDistance}
+
+dataJoburg <- dataJoburg %>%
+  mutate(
+    distance_group = case_when(
+      distanceNearestM < 2500              ~ "<2500 m",
+      distanceNearestM < 5000 & distanceNearestM > 2500              ~ "<5 km",
+      distanceNearestM >= 5000             ~ "≥5 km",
+      TRUE                         ~ NA_character_
+    ),
+    distance_group = factor(distance_group, levels = c("<2500 m", "<5 km","≥5 km"), ordered = TRUE)
+  )
+
+satisfaction <- dataJoburg %>%
+  filter(!is.na(AM_Perc), !is.na(distance_group)) %>% 
+  group_by(distance_group, AM_Perc) %>%
+  summarise(count = n(), .groups = "drop_last") %>%
+  group_by(distance_group) %>%
+  mutate(
+    share = count / sum(count),
+    label = round(share * 100)
+  ) %>%
+  ungroup() %>%
+  # 2) text color + factor relabel
+  mutate(
+    text_color = case_when(
+      AM_Perc %in% c("3") ~ "lightgrey",   # light text for darkest fill
+      TRUE                ~ "grey28"
+    ),
+    AM_Perc_cat = factor(
+      AM_Perc,
+      levels = c("3", "2", "1"),           # reverse order
+      labels = c("Good job", "Moderate job", "Bad job"),
+      ordered = TRUE
+    )
+  )
+
+# 4) plot: 100% stacked bars by distance group
+pDis <- ggplot(satisfaction, aes(x = distance_group, y = share, fill = AM_Perc_cat)) +
+  geom_col(width = 0.6) +
+  geom_text(
+    aes(
+      label = label,                 # or paste0(label, "%")
+      group = AM_Perc_cat,       # align labels with stacks
+      color = text_color
+    ),
+    position = position_stack(vjust = 0.5),
+    size = 3, na.rm = TRUE
+  ) +
+  scale_color_identity() +
+  coord_flip() +
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(
+    values = brewer.pal(3, "BuPu"),
+    limits = rev(c("Good job", "Moderate job", "Bad job"))
+  ) +
+ labs(
+    x = "",
+    y = "Percentage (within distance group)",
+    fill = "Response",
+    title = "How often or not do you look up information on air pollution in Johannesburg? (by distance to monitor)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    legend.title = element_blank()
+  )
+
+pDis
+
+ggsave(plot = pDis, filename = paste("revisions/plots/satisfactionDistance.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
+```
+

@@ -725,7 +725,6 @@ ggsave(plot = pDis, filename = paste("revisions/plots/satisfactionDistance.png",
 library(modelsummary)
 library(flextable)
 
-
 # knowledge
 lm(AM_Knowlg_1~quota_age_ + quota_education*gender + distanceNearestM, data = dataJoburg) %>% summary(.)
 lm(AM_Knowlg_1~quota_age_ + quota_education*gender, data = dataJoburg) %>% summary(.)
@@ -751,8 +750,8 @@ lm(AM_Freq~quota_age_ + quota_education*gender + employBin + employBin:quota_edu
 
 # 1) list of formulas from simplest to most complex
 forms <- list(
-  "Intercept" = "AM_Knowlg_1 ~ 1",
-  "Simple"       = "AM_Knowlg_1 ~ quota_age_ + perception_spatial",
+  "Education" = "AM_Knowlg_1 ~ quota_education + perception_spatial",
+  "Age"       = "AM_Knowlg_1 ~ quota_age_ + perception_spatial",
   "AddEdu"    = "AM_Knowlg_1 ~ quota_age_ + quota_education + perception_spatial",
   "AddGender" = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + perception_spatial",
   "Interact"  = "AM_Knowlg_1 ~ quota_age_ + quota_education * gender + perception_spatial",
@@ -780,13 +779,31 @@ modelsummary(models,
              statistic = c("std.error","p.value"),
              stars = TRUE)
 
+# 4) build a flextable from modelsummary
+summary_ft <- modelsummary(
+  models,
+  coef_map  = coef_map,
+  fmt       = 3,
+  statistic = c("({std.error})"),  # SEs on one line, p on next
+  stars     = TRUE,
+  gof_omit  = "Log|RMSE",                    # optional: hide some GOF rows
+  output    = "flextable"
+)
+
+# (optional) polish the table
+summary_ft <- autofit(summary_ft)
+# summary_ft <- add_footer_lines(summary_ft, "+ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001")
+
+# 5) save to Word
+flextable::save_as_docx("Table S2. Model summary" = summary_ft,
+                        path = "revisions/tables/summaryTableKnowledge.docx")
 
 ####### perception
 
 # 1) list of formulas from simplest to most complex
 forms <- list(
-  "Intercept" = "AM_Perc ~ 1",
-  "Simple"       = "AM_Perc ~ quota_age_ + perception_spatial",
+  "Education" = "AM_Perc ~ quota_education + perception_spatial",
+  "Age"       = "AM_Perc ~ quota_age_ + perception_spatial",
   "AddEdu"    = "AM_Perc ~ quota_age_ + quota_education + perception_spatial",
   "AddGender" = "AM_Perc ~ quota_age_ + quota_education + gender + perception_spatial",
   "Interact"  = "AM_Perc ~ quota_age_ + quota_education * gender + perception_spatial",
@@ -814,12 +831,32 @@ modelsummary(models,
              statistic = c("std.error","p.value"),
              stars = TRUE)
 
+# 4) build a flextable from modelsummary
+summary_ft <- modelsummary(
+  models,
+  coef_map  = coef_map,
+  fmt       = 3,
+  statistic = c("({std.error})"),  # SEs on one line, p on next
+  stars     = TRUE,
+  gof_omit  = "Log|RMSE",                    # optional: hide some GOF rows
+  output    = "flextable"
+)
+
+
+# (optional) polish the table
+summary_ft <- autofit(summary_ft)
+# summary_ft <- add_footer_lines(summary_ft, "+ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001")
+
+# 5) save to Word
+flextable::save_as_docx("Table S4. Model summary" = summary_ft,
+                        path = "revisions/tables/summaryTableSatisfaction.docx")
+
 ####### frequency
 
 # 1) list of formulas from simplest to most complex
 forms <- list(
-  "Intercept" = "AM_Freq ~ 1",
-  "Simple"       = "AM_Freq ~ quota_age_ + perception_spatial",
+  "Education"       = "AM_Freq ~ quota_education + perception_spatial",
+  "Age"       = "AM_Freq ~ quota_age_ + perception_spatial",
   "AddEdu"    = "AM_Freq ~ quota_age_ + quota_education + perception_spatial",
   "AddGender" = "AM_Freq ~ quota_age_ + quota_education + gender + perception_spatial",
   "Interact"  = "AM_Freq ~ quota_age_ + quota_education * gender + perception_spatial",
@@ -844,9 +881,27 @@ coef_map <- c(
 modelsummary(models,
              coef_map = coef_map,
              fmt = 3,                # digits
-             statistic = c("std.error","p.value"),
+             statistic = c("std.error"),
              stars = TRUE)
 
+# 4) build a flextable from modelsummary
+summary_ft <- modelsummary(
+  models,
+  coef_map  = coef_map,
+  fmt       = 3,
+  statistic = c("({std.error})"),  # SEs on one line, p on next
+  stars     = TRUE,
+  gof_omit  = "Log|RMSE",                    # optional: hide some GOF rows
+  output    = "flextable"
+)
+
+# (optional) polish the table
+summary_ft <- autofit(summary_ft)
+# summary_ft <- add_footer_lines(summary_ft, "+ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001")
+
+# 5) save to Word
+flextable::save_as_docx("Table S3. Model summary" = summary_ft,
+                        path = "revisions/tables/summaryTableFrequency.docx")
 
 ## full table
 
@@ -894,13 +949,14 @@ summary_ft <- modelsummary(
 
 # (optional) polish the table
 summary_ft <- autofit(summary_ft)
-summary_ft <- add_footer_lines(summary_ft, "+ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001")
+# summary_ft <- add_footer_lines(summary_ft, "+ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001")
 
 # 5) save to Word
 flextable::save_as_docx("Table S1. Model summary" = summary_ft,
-                        path = "revisions/summaryTableKFS.docx")
+                        path = "revisions/tables/summaryTableKFS.docx")
 
 ```
+
 
 
 ```{r perceived exposure}
@@ -911,9 +967,40 @@ dataJoburg$concern_gen
 
 cor(dataJoburg$perception_current, dataJoburg$perception_spatial, method = "spearman")
 
-cor(dataJoburg$perception_current, dataJoburg$perception_spatial, method = "spearman")
+```
 
 
+
+```{r boxplots}
+
+dataJoburg %>%
+  filter(!is.na(AM_Knowlg_1)) %>%
+  ggplot(aes(y = AM_Knowlg_1, x = age_group_cat))+
+  labs(y = "If you would want to know how much air pollution there is in Johannesburg,\nwould you know or not know where to find this information?",
+       x = "Age Group")+
+  geom_boxplot(col = "black", fill = "white")+
+  theme_minimal()
+
+
+dataJoburg %>%
+  filter(!is.na(AM_Perc)) %>%
+  ggplot(aes(y = AM_Perc, x = age_group_cat))+
+  labs(y = "",
+       x = "Age Group")+
+  geom_boxplot(col = "black", fill = "white")+
+  theme_minimal()
+
+dataJoburg %>%
+  filter(!is.na(AM_Freq)) %>%
+  ggplot(aes(y = AM_Freq, x = age_group_cat))+
+  labs(y = "",
+       x = "Age Group")+
+  geom_boxplot(col = "black", fill = "white")+
+  theme_minimal()
 
 ```
+
+
+
+
 

@@ -754,8 +754,10 @@ forms <- list(
   "Age"       = "AM_Knowlg_1 ~ quota_age_ + perception_spatial",
   "AddEdu"    = "AM_Knowlg_1 ~ quota_age_ + quota_education + perception_spatial",
   "AddGender" = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + perception_spatial",
-  "Interact"  = "AM_Knowlg_1 ~ quota_age_ + quota_education * gender + perception_spatial",
-  "Full"      = "AM_Knowlg_1 ~ quota_age_ + quota_education * gender + distanceNearestM + perception_spatial"
+  "AddEmploy" = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "Interact"  = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + quota_age_:quota_education + perception_spatial",
+  "Interact2" = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + employBin:quota_education + perception_spatial",
+  "Dist"      = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial"
 )
 
 # 2) fit models in one line with lapply
@@ -767,8 +769,10 @@ coef_map <- c(
   "quota_age_" = "Age",
   "perception_spatial" = "Perception (spatial)",
   "quota_education" = "Education",
-  "gendermale" = "Gender",
-  "quota_education:gendermale" = "Education × Gender",
+  "gendermale" = "Male",
+  "quota_age_:quota_education" = "Age x Education", 
+  "employBin2unemployed" = "Unemployment",
+  "quota_education:employBin2unemployed" = "Education × Unemployment",
   "distanceNearestM" = "Distance (m)"
 )
 
@@ -806,8 +810,10 @@ forms <- list(
   "Age"       = "AM_Perc ~ quota_age_ + perception_spatial",
   "AddEdu"    = "AM_Perc ~ quota_age_ + quota_education + perception_spatial",
   "AddGender" = "AM_Perc ~ quota_age_ + quota_education + gender + perception_spatial",
-  "Interact"  = "AM_Perc ~ quota_age_ + quota_education * gender + perception_spatial",
-  "Full"      = "AM_Perc ~ quota_age_ + quota_education * gender + distanceNearestM + perception_spatial"
+  "AddEmploy" = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "Interact"  = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + quota_age_:quota_education + perception_spatial",
+  "Interact2" = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + employBin:quota_education + perception_spatial",
+  "Dist"      = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial"
 )
 
 # 2) fit models in one line with lapply
@@ -819,10 +825,13 @@ coef_map <- c(
   "quota_age_" = "Age",
   "perception_spatial" = "Perception (spatial)",
   "quota_education" = "Education",
-  "gendermale" = "Gender",
-  "quota_education:gendermale" = "Education × Gender",
+  "gendermale" = "Male",
+  "quota_age_:quota_education" = "Age x Education", 
+  "employBin2unemployed" = "Unemployment",
+  "quota_education:employBin2unemployed" = "Education × Unemployment",
   "distanceNearestM" = "Distance (m)"
 )
+
 
 # 4) single tidy table (estimates, SEs, p-values, stars)
 modelsummary(models,
@@ -855,12 +864,14 @@ flextable::save_as_docx("Table S4. Model summary" = summary_ft,
 
 # 1) list of formulas from simplest to most complex
 forms <- list(
-  "Education"       = "AM_Freq ~ quota_education + perception_spatial",
+  "Education" = "AM_Freq ~ quota_education + perception_spatial",
   "Age"       = "AM_Freq ~ quota_age_ + perception_spatial",
   "AddEdu"    = "AM_Freq ~ quota_age_ + quota_education + perception_spatial",
   "AddGender" = "AM_Freq ~ quota_age_ + quota_education + gender + perception_spatial",
-  "Interact"  = "AM_Freq ~ quota_age_ + quota_education * gender + perception_spatial",
-  "Full"      = "AM_Freq ~ quota_age_ + quota_education * gender + distanceNearestM + perception_spatial"
+  "AddEmploy" = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "Interact" = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + perception_spatial + quota_age_:quota_education",
+  "Interact2"  = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + employBin:quota_education + perception_spatial",
+  "Distance"  = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial"
 )
 
 # 2) fit models in one line with lapply
@@ -872,8 +883,10 @@ coef_map <- c(
   "quota_age_" = "Age",
   "perception_spatial" = "Perception (spatial)",
   "quota_education" = "Education",
-  "gendermale" = "Gender",
-  "quota_education:gendermale" = "Education × Gender",
+  "gendermale" = "Male",
+  "quota_age_:quota_education" = "Age x Education", 
+  "employBin2unemployed" = "Unemployment",
+  "quota_education:employBin2unemployed" = "Education × Unemployment",
   "distanceNearestM" = "Distance (m)"
 )
 
@@ -907,13 +920,16 @@ flextable::save_as_docx("Table S3. Model summary" = summary_ft,
 
 # 1) list of formulas from simplest to most complex
 forms <- list(
-  "Knowledge" = "AM_Knowlg_1 ~ quota_age_ + quota_education * gender + perception_spatial",
-  "K+dist"       = "AM_Knowlg_1 ~ quota_age_ + quota_education * gender + distanceNearestM + perception_spatial",
-  "Frequency"    = "AM_Freq ~ quota_age_ + quota_education * gender + perception_spatial",
-  "F+dist" = "AM_Freq ~ quota_age_ + quota_age_ + quota_education * gender + distanceNearestM + perception_spatial",
-  "Satisfaction"  = "AM_Perc ~ quota_age_ + quota_education * gender + perception_spatial",
-  "S+dist"      = "AM_Perc ~ quota_age_ + quota_education * gender + distanceNearestM + perception_spatial"
-)
+  "Knowledge"    = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + perception_spatial",
+  "K+unemploy"    = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "K+dist"       = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial",
+  "Frequency"    = "AM_Freq ~ quota_age_ + quota_education + gender + perception_spatial",
+  "F+unemploy"    = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "F+dist"       = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial",
+  "Satisfaction" = "AM_Perc ~ quota_age_ + quota_education + gender + perception_spatial",
+  "S+unemploy" = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "S+dist"       = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial"
+  )
 
 # 2) fit models in one line with lapply
 models <- lapply(forms, function(f) lm(as.formula(f), data = dataJoburg))
@@ -924,8 +940,9 @@ coef_map <- c(
   "quota_age_" = "Age",
   "perception_spatial" = "Perception (spatial)",
   "quota_education" = "Education",
-  "gendermale" = "Gender",
-  "quota_education:gendermale" = "Education × Gender",
+  "gendermale" = "Male",
+  "employBin2unemployed" = "Unemployment",
+  "quota_education:employBin2unemployed" = "Education × Unemployment",
   "distanceNearestM" = "Distance (m)"
 )
 
@@ -973,14 +990,17 @@ cor(dataJoburg$perception_current, dataJoburg$perception_spatial, method = "spea
 
 ```{r boxplots}
 
-dataJoburg %>%
+p1 <- dataJoburg %>%
   filter(!is.na(AM_Knowlg_1)) %>%
   ggplot(aes(y = AM_Knowlg_1, x = age_group_cat))+
-  labs(y = "If you would want to know how much air pollution there is in Johannesburg,\nwould you know or not know where to find this information?",
-       x = "Age Group")+
+  labs(title = "If you would want to know how much air pollution there is in Johannesburg,\nwould you know or not know where to find this information?",
+       x = "Age Group",
+       y = "Knowledge")+
   geom_boxplot(col = "black", fill = "white")+
   theme_minimal()
 
+ggsave(plot = p1, filename = paste("revisions/plots/boxplotKnowledgeAge.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
 
 dataJoburg %>%
   filter(!is.na(AM_Perc)) %>%

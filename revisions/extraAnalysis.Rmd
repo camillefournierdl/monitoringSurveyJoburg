@@ -1002,7 +1002,18 @@ p1 <- dataJoburg %>%
 ggsave(plot = p1, filename = paste("revisions/plots/boxplotKnowledgeAge.png", sep = ""),
        dpi=600, width = 18, height = 10, units='cm')
 
-dataJoburg %>%
+p2 <- dataJoburg %>%
+  filter(!is.na(AM_Freq)) %>%
+  ggplot(aes(y = AM_Freq, x = age_group_cat))+
+  labs(y = "",
+       x = "Age Group")+
+  geom_boxplot(col = "black", fill = "white")+
+  theme_minimal()
+
+ggsave(plot = p2, filename = paste("revisions/plots/reviewerResponse_boxplotFreqAge.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
+p3 <- dataJoburg %>%
   filter(!is.na(AM_Perc)) %>%
   ggplot(aes(y = AM_Perc, x = age_group_cat))+
   labs(y = "",
@@ -1010,13 +1021,10 @@ dataJoburg %>%
   geom_boxplot(col = "black", fill = "white")+
   theme_minimal()
 
-dataJoburg %>%
-  filter(!is.na(AM_Freq)) %>%
-  ggplot(aes(y = AM_Freq, x = age_group_cat))+
-  labs(y = "",
-       x = "Age Group")+
-  geom_boxplot(col = "black", fill = "white")+
-  theme_minimal()
+
+ggsave(plot = p3, filename = paste("revisions/plots/reviewerResponse_boxplotSatisfAge.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
 
 ```
 

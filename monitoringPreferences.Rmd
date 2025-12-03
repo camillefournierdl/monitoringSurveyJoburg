@@ -48,7 +48,7 @@ session_info <- print(sessionInfo())
 
 set.seed(123)
 
-dataJoburg <- read.csv("data/data_joh_person.csv")
+dataJoburg <- read.csv("data/data_joh_person_anon.csv")
 
 ```
 
@@ -165,12 +165,12 @@ rank1_counts <- data_long %>%
 rank1_counts <- rank1_counts %>%
   mutate(item = factor(
     recode(item,
-           `AM_priority_source_1` = "roads",
-           `AM_priority_source_2` = "hospitals",
-           `AM_priority_source_3` = "schools",
-           `AM_priority_source_4` = "factories",
-           `AM_priority_source_5` = "residential areas"),
-    levels = c("factories", "residential areas", "hospitals", "schools", "roads")
+           `AM_priority_source_1` = "Roads",
+           `AM_priority_source_2` = "Hospitals",
+           `AM_priority_source_3` = "Schools",
+           `AM_priority_source_4` = "Factories",
+           `AM_priority_source_5` = "Residential areas"),
+    levels = c("Factories", "Residential areas", "Hospitals", "Schools", "Roads")
   ))
 
 # Create a bar chart of the counts
@@ -178,12 +178,15 @@ p2 <- ggplot(rank1_counts, aes(x = reorder(item, -n), y = n, fill = item)) +
   geom_col(width = 0.75) +
   labs(
     title = "Where do you think the City of Johannesburg should\nput technical devices to measure air pollution?\n- Most Common Rank 1",
-    x = "Where to set up monitors in priority?",
+    x = "",
     y = "Count of Rank 1",
     fill = ""
   )+
   scale_fill_manual(values = brewer.pal(5, "BuPu"))+
-  guides(fill="none")
+  guides(fill="none")+
+  theme_minimal()
+
+p2
 
 ggsave(plot = p2, filename = paste("plots/priorityPlacementRank1.png", sep = ""),
        dpi=600, width = 14, height = 11, units='cm')

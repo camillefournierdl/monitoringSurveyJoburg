@@ -177,7 +177,7 @@ rank1_counts <- rank1_counts %>%
 p2 <- ggplot(rank1_counts, aes(x = reorder(item, -n), y = n, fill = item)) +
   geom_col(width = 0.75) +
   labs(
-    title = "Where do you think the City of Johannesburg should put technical devices to measure air pollution?\nMost Common Rank 1",
+    title = "Where do you think the city government of Johannesburg\nshould put technical devices to measure air pollution?\nMost Common Rank 1",
     x = "",
     y = "Count of Rank 1",
     fill = ""

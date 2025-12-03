@@ -163,7 +163,7 @@ p_stacked_fixed <- ggplot(summary_data, aes(x = Question_Plot_Label, y = share,
     x = "",
     y = "Percentage",
     fill = "Response",
-    title = "What do you think would happen if the City measured air pollution\nin more places and made the information easy to find?
+    title = "What do you think would happen if the city government\nof Johannesburg measured air pollution in more\nplaces and made the information easy to find?
 " # question
   ) +
   theme_minimal() +
@@ -173,7 +173,7 @@ p_stacked_fixed <- ggplot(summary_data, aes(x = Question_Plot_Label, y = share,
     axis.text.y = element_text(size = 10),
     axis.text.x = element_text(size = 8),
     axis.title.x = element_text(size = 9),
-    plot.title = element_text(size = 12)
+    plot.title = element_text(size = 11)
   )
 
 print(p_stacked_fixed)

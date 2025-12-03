@@ -29,6 +29,8 @@ output: html_document
 library(tidyverse)
 library(RColorBrewer)
 library(scales)
+library(modelsummary)
+library(flextable)
 
 ## For replicability: session information 
 session_info <- print(sessionInfo())
@@ -721,9 +723,6 @@ ggsave(plot = pDis, filename = paste("revisions/plots/satisfactionDistance.png",
 ```
 
 ```{r models}
-
-library(modelsummary)
-library(flextable)
 
 # knowledge
 lm(AM_Knowlg_1~quota_age_ + quota_education*gender + distanceNearestM, data = dataJoburg) %>% summary(.)

@@ -31,6 +31,7 @@ library(terra)
 library(tidyterra)
 library(ggrepel)
 library(RColorBrewer)
+library(ggnewscale)   # allows two fill scales in one plot
 
 ## For replicability: session information 
 session_info <- print(sessionInfo())
@@ -355,8 +356,6 @@ summary_df <- pts_df %>%
             n_points  = sum(perception_spatial))
 
 mainPlaces_sum <- merge(mainPlaces, summary_df, by = "OBJECTID", all.x = T, all.y = F)
-
-library(ggnewscale)   # allows two fill scales in one plot
 
 p1 <- ggplot() +
   geom_spatvector(data = mainPlaces_sum, aes(fill = mean_value), alpha = 0.9) +

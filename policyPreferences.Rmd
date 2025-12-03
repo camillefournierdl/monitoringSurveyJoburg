@@ -27,6 +27,8 @@ output: html_document
 # session_info <- print(sessionInfo())
 
 library(tidyverse)
+library(RColorBrewer)
+library(scales)
 
 ## For replicability: session information 
 session_info <- print(sessionInfo())
@@ -63,8 +65,6 @@ dataJoburg <- dataJoburgFilter
 
 
 ```{r figure policy pref}
-library(RColorBrewer)
-library(scales)
 
 # --- Step 1: Recode and factor all three policy variables ---
 recode_policy <- function(x) {

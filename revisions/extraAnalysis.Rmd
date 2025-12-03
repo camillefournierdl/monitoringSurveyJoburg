@@ -82,6 +82,9 @@ distances <- read.csv("revisions/distanceToAQM.csv")
 
 dataJoburg <- merge(dataJoburg, distances, by.x = "X", by.y = "idQualtrix", all.x = T)
 
+dataJoburg$employBin <- ifelse(dataJoburg$employ == "1", "1employed",
+                               ifelse(dataJoburg$employ %in% c("3", "4"), "2unemployed", NA))
+
 ```
 
 ```{r knowledge}
@@ -101,6 +104,14 @@ dataJoburg$age_group_cat <- ifelse(dataJoburg$quota_age_ == "1", "18-29",
                                         ifelse(dataJoburg$quota_age_ == "3", "40-49",
                                                ifelse(dataJoburg$quota_age_ == "4", "50-60", NA))))
 
+dataJoburg$education_level_cat <- ifelse(dataJoburg$quota_education == "1", "No ed.",
+                                 ifelse(dataJoburg$quota_education == "2", "Grade 1-7",
+                                        ifelse(dataJoburg$quota_education == "3", "Grade 8-11",
+                                               ifelse(dataJoburg$quota_education == "4", "Grade 12",
+                                                      ifelse(dataJoburg$quota_education == "5", "Post matric",
+                                                             ifelse(dataJoburg$quota_education == "6", "Bachelor",
+                                                                    ifelse(dataJoburg$quota_education == "7", "Master+", NA)))))))
+
 dataJoburg %>%
   filter(!is.na(AM_Knowlg_1F)) %>%
   ggplot(aes(x = AM_Knowlg_1F))+
@@ -113,6 +124,10 @@ dataJoburg %>%
 
 ## summarise
 # 1) counts + within-age percentages
+
+## now also including top bar
+
+# --- 1) original per-age-group summary (unchanged) ---
 knowledge <- dataJoburg %>%
   filter(!is.na(AM_Knowlg_1), !is.na(age_group_cat)) %>% 
   group_by(age_group_cat, AM_Knowlg_1) %>%
@@ -124,18 +139,24 @@ knowledge <- dataJoburg %>%
   ) %>%
   ungroup()
 
-# 2) text color per response category
-knowledge <- knowledge %>%
+# --- 2) compute overall summary (across all ages) ---
+knowledge_overall <- dataJoburg %>%
+  filter(!is.na(AM_Knowlg_1)) %>%
+  group_by(AM_Knowlg_1) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(
+    share = count / sum(count),
+    label = round(share * 100),
+    age_group_cat = "Overall"  # mark as overall
+  )
+
+# --- 3) combine and add plotting helper columns for both datasets ---
+knowledge_all <- bind_rows(knowledge, knowledge_overall) %>%
   mutate(
     text_color = case_when(
       AM_Knowlg_1 %in% c("5", "4") ~ "lightgrey",
       TRUE                        ~ "grey28"
-    )
-  )
-
-# 3) ordered/relabeled factor for plotting
-knowledge <- knowledge %>%
-  mutate(
+    ),
     AM_Knowlg_1_cat = factor(
       AM_Knowlg_1,
       levels = c("5", "4", "3", "2", "1"),
@@ -144,14 +165,20 @@ knowledge <- knowledge %>%
     )
   )
 
-# 4) plot: 100% stacked bars per age group
-p1 <- ggplot(knowledge, aes(x = age_group_cat, y = share, fill = AM_Knowlg_1_cat)) +
+# --- 4) set age_group_cat order so that "Overall" appears on top after coord_flip()
+# Note: with coord_flip(), the last factor level is shown at the top.
+existing_levels <- knowledge %>% distinct(age_group_cat) %>% pull(age_group_cat)
+age_levels <- c(existing_levels, "Overall")  # put Overall last so it displays at top
+knowledge_all <- knowledge_all %>%
+  mutate(age_group_cat = factor(age_group_cat, levels = age_levels))
+
+# --- 5) plot ---
+p1 <- ggplot(knowledge_all, aes(x = age_group_cat, y = share, fill = AM_Knowlg_1_cat)) +
   geom_col(width = 0.6) +
   geom_text(
     aes(
-      # show %; or keep `label` if you prefer integers
-      label = paste0(round(share * 100)),
-      group = AM_Knowlg_1_cat,   # <- key: align text with the stacked groups
+      label = paste0(round(share * 100), "%"),
+      group = AM_Knowlg_1_cat,
       color = text_color
     ),
     position = position_stack(vjust = 0.5),
@@ -161,33 +188,34 @@ p1 <- ggplot(knowledge, aes(x = age_group_cat, y = share, fill = AM_Knowlg_1_cat
   scale_color_identity() +
   coord_flip() +
   scale_y_continuous(
-    labels = scales::percent_format(accuracy = 1),
+    labels = percent_format(accuracy = 1),
     expand = expansion(mult = c(0, 0.02))
   ) +
   scale_fill_manual(
-    values = RColorBrewer::brewer.pal(5, "BuPu"),
+    values = brewer.pal(5, "BuPu"),
     limits = rev(c("Would know", "   ●   ", "Perhaps", "  ●  ", "Would not know"))
   ) +
   labs(
     x = "",
-    y = "Percentage (within age group)",
+    y = "Percentage (overall & for different age groups)",
     fill = "Response",
-    title = "If you wanted to know how much air pollution there is in Johannesburg,\nwould you know where to find this information? (by age group)"
+    title = "If you wanted to know how much air pollution there is in Johannesburg,\nwould you know where to find this information?"
   ) +
   theme_minimal() +
   theme(
     legend.position = "top",
-    legend.title = element_blank()
+    legend.title = element_blank(),
+    plot.title = element_text(size = 10)
   )
 
 p1
 
 ggsave(plot = p1, filename = paste("revisions/plots/knowledgeAge.png", sep = ""),
-       dpi=600, width = 18, height = 10, units='cm')
-
-lm(AM_Knowlg_1~quota_age_ + quota_education + gender + distanceNearestM, data = dataJoburg) %>% summary(.)
+       dpi=600, width = 15, height = 8, units='cm')
 
 ```
+
+
 
 ```{r knowledgeDistance}
 
@@ -276,7 +304,10 @@ ggsave(plot = pDis, filename = paste("revisions/plots/knowledgeDistance.png", se
 ```{r frequencyInfo}
 
 # 1) counts + within-age percentages
-freqJ <- dataJoburg %>%
+## add overall bar
+
+# --- 1) per-age-group summary (base) ---
+freqJ_base <- dataJoburg %>%
   filter(!is.na(AM_Freq), !is.na(age_group_cat)) %>% 
   group_by(age_group_cat, AM_Freq) %>%
   summarise(count = n(), .groups = "drop_last") %>%
@@ -285,14 +316,26 @@ freqJ <- dataJoburg %>%
     share = count / sum(count),
     label = round(share * 100)
   ) %>%
-  ungroup() %>%
-  # 2) text color per response category
+  ungroup()
+
+# --- 2) overall summary across all ages ---
+freqJ_overall <- dataJoburg %>%
+  filter(!is.na(AM_Freq)) %>%
+  group_by(AM_Freq) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(
+    share = count / sum(count),
+    label = round(share * 100),
+    age_group_cat = "Overall"
+  )
+
+# --- 3) combine, add plotting helpers ---
+freqJ_all <- bind_rows(freqJ_base, freqJ_overall) %>%
   mutate(
     text_color = case_when(
-      AM_Freq %in% c("3") ~ "lightgrey",  # light text for darkest fill
+      AM_Freq %in% c("3") ~ "lightgrey",
       TRUE                ~ "grey28"
     ),
-    # 3) ordered/relabeled factor for plotting
     AM_Freq_cat = factor(
       AM_Freq,
       levels = c("3", "2", "1"),
@@ -301,13 +344,20 @@ freqJ <- dataJoburg %>%
     )
   )
 
-# 4) plot: 100% stacked bars per age group
-p2 <- ggplot(freqJ, aes(x = age_group_cat, y = share, fill = AM_Freq_cat)) +
+# --- 4) ensure ordering so "Overall" appears at the top after coord_flip() ---
+existing_levels <- freqJ_base %>% distinct(age_group_cat) %>% pull(age_group_cat)
+# Put Overall last so it displays at the top when coord_flip() is used
+age_levels <- c(existing_levels, "Overall")
+freqJ_all <- freqJ_all %>%
+  mutate(age_group_cat = factor(age_group_cat, levels = age_levels))
+
+# --- 5) plot (100% stacked with Overall on top) ---
+p2 <- ggplot(freqJ_all, aes(x = age_group_cat, y = share, fill = AM_Freq_cat)) +
   geom_col(width = 0.6) +
   geom_text(
     aes(
-      label = label,              # or paste0(label, "%") if you want the % sign
-      group = AM_Freq_cat,        # <- keeps labels centered in their stack
+      label = paste0(label, "%"),
+      group = AM_Freq_cat,
       color = text_color
     ),
     position = position_stack(vjust = 0.5),
@@ -326,23 +376,21 @@ p2 <- ggplot(freqJ, aes(x = age_group_cat, y = share, fill = AM_Freq_cat)) +
   ) +
   labs(
     x = "",
-    y = "Percentage (within age group)",
+    y = "Percentage (overall & for different age groups)",
     fill = "Response",
-    title = "How often or not do you look up information on air pollution in Johannesburg? (by age group)"
+    title = "How often or not do you look up information on air pollution in Johannesburg?"
   ) +
   theme_minimal() +
   theme(
     legend.position = "top",
-    legend.title = element_blank()
+    legend.title = element_blank(),
+    plot.title = element_text(size = 10)
   )
 
 p2
 
-lm(AM_Freq~quota_age_ + quota_education + gender + distanceNearestM, data = dataJoburg) %>% summary(.)
-
-ggsave(plot = p2, filename = paste("revisions/plots/frequencyAge.png", sep = ""),
-       dpi=600, width = 18, height = 10, units='cm')
-
+ggsave(plot = p2, filename = "revisions/plots/frequencyAge.png",
+       dpi = 600, width = 15, height = 8, units = "cm")
 ```
 
 
@@ -496,7 +544,101 @@ p3
 ggsave(plot = p3, filename = paste("revisions/plots/satisfactionAge.png", sep = ""),
        dpi=600, width = 18, height = 10, units='cm')
 
-lm(AM_Perc~quota_age_ + quota_education + gender + distanceNearestM, data = dataJoburg) %>% summary(.)
+
+```
+
+```{r satisfaction education}
+
+# 1) counts + within-age percentages
+
+## with overall bar on top
+
+# --- 1) per-education-group summary (base) ---
+satisfaction_base <- dataJoburg %>%
+  filter(!is.na(AM_Perc), !is.na(education_level_cat)) %>% 
+  group_by(education_level_cat, AM_Perc) %>%
+  summarise(count = n(), .groups = "drop_last") %>%
+  group_by(education_level_cat) %>%
+  mutate(
+    share = count / sum(count),
+    label = round(share * 100)
+  ) %>%
+  ungroup()
+
+# --- 2) overall summary across all education levels ---
+satisfaction_overall <- dataJoburg %>%
+  filter(!is.na(AM_Perc)) %>%
+  group_by(AM_Perc) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(
+    share = count / sum(count),
+    label = round(share * 100),
+    education_level_cat = "Overall"
+  )
+
+# --- 3) combine and add plotting helpers ---
+satisfaction_all <- bind_rows(satisfaction_base, satisfaction_overall) %>%
+  mutate(
+    text_color = case_when(
+      AM_Perc %in% c("3") ~ "lightgrey",   # light text for darkest fill
+      TRUE                ~ "grey28"
+    ),
+    AM_Perc_cat = factor(
+      AM_Perc,
+      levels = c("3", "2", "1"),
+      labels = c("Good job", "Moderate job", "Bad job"),
+      ordered = TRUE
+    )
+  )
+
+# --- 4) set ordering so "Overall" appears at the top after coord_flip() ---
+edu_levels <- c("No ed.","Grade 1-7","Grade 8-11","Grade 12","Post matric","Bachelor","Master+")
+# put "Overall" last so it will display at the top when coord_flip() is used
+edu_levels_with_overall <- c(edu_levels, "Overall")
+satisfaction_all <- satisfaction_all %>%
+  mutate(education_level_cat = factor(education_level_cat, levels = edu_levels_with_overall))
+
+# --- 5) plot (100% stacked with Overall on top) ---
+p3 <- ggplot(satisfaction_all, aes(x = education_level_cat, y = share, fill = AM_Perc_cat)) +
+  geom_col(width = 0.6) +
+  geom_text(
+    aes(
+      label = paste0(label, "%"),
+      group = AM_Perc_cat,
+      color = text_color
+    ),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    na.rm = TRUE
+  ) +
+  scale_color_identity() +
+  coord_flip() +
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_fill_manual(
+    values = brewer.pal(3, "BuPu"),
+    limits = rev(c("Good job", "Moderate job", "Bad job"))
+  ) +
+  labs(
+    x = "",
+    y = "Percentage (overall & for different education levels)",
+    fill = "Response",
+    title = "In your view, has the city government of Johannesburg done a good job\n or bad job in informing people about air pollution?"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    legend.title = element_blank(),
+    plot.title = element_text(size = 10)
+  )
+
+p3
+
+ggsave(plot = p3, filename = paste("revisions/plots/satisfactionEduc.png", sep = ""),
+       dpi=600, width = 15, height = 8, units='cm')
+
 
 ```
 
@@ -577,4 +719,316 @@ ggsave(plot = pDis, filename = paste("revisions/plots/satisfactionDistance.png",
        dpi=600, width = 18, height = 10, units='cm')
 
 ```
+
+```{r models}
+
+library(modelsummary)
+library(flextable)
+
+# knowledge
+lm(AM_Knowlg_1~quota_age_ + quota_education*gender + distanceNearestM, data = dataJoburg) %>% summary(.)
+lm(AM_Knowlg_1~quota_age_ + quota_education*gender, data = dataJoburg) %>% summary(.)
+
+lm(AM_Knowlg_1~quota_age_ + quota_education*gender + distanceNearestM + perception_spatial, data = dataJoburg) %>% summary(.)
+lm(AM_Knowlg_1~quota_age_ + quota_education+gender + distanceNearestM + perception_spatial, data = dataJoburg) %>% summary(.)
+
+lm(AM_Knowlg_1~quota_age_ + quota_education*gender + employBin + employBin:quota_education, data = dataJoburg) %>% summary(.)
+
+## perception
+lm(AM_Perc~quota_age_ + quota_education + gender + distanceNearestM, data = dataJoburg) %>% summary(.)
+lm(AM_Perc~quota_age_ + quota_education + gender, data = dataJoburg) %>% summary(.)
+
+lm(AM_Perc~quota_age_ + quota_education + gender + employBin + employBin:quota_education, data = dataJoburg) %>% summary(.)
+
+# frequency
+lm(AM_Freq~quota_age_ + quota_education*gender + distanceNearestM, data = dataJoburg) %>% summary(.)
+lm(AM_Freq~quota_age_ + quota_education*gender, data = dataJoburg) %>% summary(.)
+
+lm(AM_Freq~quota_age_ + quota_education*gender + employBin + employBin:quota_education, data = dataJoburg) %>% summary(.)
+
+####### knowledge
+
+# 1) list of formulas from simplest to most complex
+forms <- list(
+  "Education" = "AM_Knowlg_1 ~ quota_education + perception_spatial",
+  "Age"       = "AM_Knowlg_1 ~ quota_age_ + perception_spatial",
+  "AddEdu"    = "AM_Knowlg_1 ~ quota_age_ + quota_education + perception_spatial",
+  "AddGender" = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + perception_spatial",
+  "AddEmploy" = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "Interact"  = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + quota_age_:quota_education + perception_spatial",
+  "Interact2" = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + employBin:quota_education + perception_spatial",
+  "Dist"      = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial"
+)
+
+# 2) fit models in one line with lapply
+models <- lapply(forms, function(f) lm(as.formula(f), data = dataJoburg))
+
+# 3) (optional) nicer coefficient labels
+coef_map <- c(
+  "(Intercept)" = "(Intercept)",
+  "quota_age_" = "Age",
+  "perception_spatial" = "Perception (spatial)",
+  "quota_education" = "Education",
+  "gendermale" = "Male",
+  "quota_age_:quota_education" = "Age x Education", 
+  "employBin2unemployed" = "Unemployment",
+  "quota_education:employBin2unemployed" = "Education × Unemployment",
+  "distanceNearestM" = "Distance (m)"
+)
+
+# 4) single tidy table (estimates, SEs, p-values, stars)
+modelsummary(models,
+             coef_map = coef_map,
+             fmt = 3,                # digits
+             statistic = c("std.error","p.value"),
+             stars = TRUE)
+
+# 4) build a flextable from modelsummary
+summary_ft <- modelsummary(
+  models,
+  coef_map  = coef_map,
+  fmt       = 3,
+  statistic = c("({std.error})"),  # SEs on one line, p on next
+  stars     = TRUE,
+  gof_omit  = "Log|RMSE",                    # optional: hide some GOF rows
+  output    = "flextable"
+)
+
+# (optional) polish the table
+summary_ft <- autofit(summary_ft)
+# summary_ft <- add_footer_lines(summary_ft, "+ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001")
+
+# 5) save to Word
+flextable::save_as_docx("Table S2. Model summary" = summary_ft,
+                        path = "revisions/tables/summaryTableKnowledge.docx")
+
+####### perception
+
+# 1) list of formulas from simplest to most complex
+forms <- list(
+  "Education" = "AM_Perc ~ quota_education + perception_spatial",
+  "Age"       = "AM_Perc ~ quota_age_ + perception_spatial",
+  "AddEdu"    = "AM_Perc ~ quota_age_ + quota_education + perception_spatial",
+  "AddGender" = "AM_Perc ~ quota_age_ + quota_education + gender + perception_spatial",
+  "AddEmploy" = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "Interact"  = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + quota_age_:quota_education + perception_spatial",
+  "Interact2" = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + employBin:quota_education + perception_spatial",
+  "Dist"      = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial"
+)
+
+# 2) fit models in one line with lapply
+models <- lapply(forms, function(f) lm(as.formula(f), data = dataJoburg))
+
+# 3) (optional) nicer coefficient labels
+coef_map <- c(
+  "(Intercept)" = "(Intercept)",
+  "quota_age_" = "Age",
+  "perception_spatial" = "Perception (spatial)",
+  "quota_education" = "Education",
+  "gendermale" = "Male",
+  "quota_age_:quota_education" = "Age x Education", 
+  "employBin2unemployed" = "Unemployment",
+  "quota_education:employBin2unemployed" = "Education × Unemployment",
+  "distanceNearestM" = "Distance (m)"
+)
+
+
+# 4) single tidy table (estimates, SEs, p-values, stars)
+modelsummary(models,
+             coef_map = coef_map,
+             fmt = 3,                # digits
+             statistic = c("std.error","p.value"),
+             stars = TRUE)
+
+# 4) build a flextable from modelsummary
+summary_ft <- modelsummary(
+  models,
+  coef_map  = coef_map,
+  fmt       = 3,
+  statistic = c("({std.error})"),  # SEs on one line, p on next
+  stars     = TRUE,
+  gof_omit  = "Log|RMSE",                    # optional: hide some GOF rows
+  output    = "flextable"
+)
+
+
+# (optional) polish the table
+summary_ft <- autofit(summary_ft)
+# summary_ft <- add_footer_lines(summary_ft, "+ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001")
+
+# 5) save to Word
+flextable::save_as_docx("Table S4. Model summary" = summary_ft,
+                        path = "revisions/tables/summaryTableSatisfaction.docx")
+
+####### frequency
+
+# 1) list of formulas from simplest to most complex
+forms <- list(
+  "Education" = "AM_Freq ~ quota_education + perception_spatial",
+  "Age"       = "AM_Freq ~ quota_age_ + perception_spatial",
+  "AddEdu"    = "AM_Freq ~ quota_age_ + quota_education + perception_spatial",
+  "AddGender" = "AM_Freq ~ quota_age_ + quota_education + gender + perception_spatial",
+  "AddEmploy" = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "Interact" = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + perception_spatial + quota_age_:quota_education",
+  "Interact2"  = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + employBin:quota_education + perception_spatial",
+  "Distance"  = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial"
+)
+
+# 2) fit models in one line with lapply
+models <- lapply(forms, function(f) lm(as.formula(f), data = dataJoburg))
+
+# 3) (optional) nicer coefficient labels
+coef_map <- c(
+  "(Intercept)" = "(Intercept)",
+  "quota_age_" = "Age",
+  "perception_spatial" = "Perception (spatial)",
+  "quota_education" = "Education",
+  "gendermale" = "Male",
+  "quota_age_:quota_education" = "Age x Education", 
+  "employBin2unemployed" = "Unemployment",
+  "quota_education:employBin2unemployed" = "Education × Unemployment",
+  "distanceNearestM" = "Distance (m)"
+)
+
+# 4) single tidy table (estimates, SEs, p-values, stars)
+modelsummary(models,
+             coef_map = coef_map,
+             fmt = 3,                # digits
+             statistic = c("std.error"),
+             stars = TRUE)
+
+# 4) build a flextable from modelsummary
+summary_ft <- modelsummary(
+  models,
+  coef_map  = coef_map,
+  fmt       = 3,
+  statistic = c("({std.error})"),  # SEs on one line, p on next
+  stars     = TRUE,
+  gof_omit  = "Log|RMSE",                    # optional: hide some GOF rows
+  output    = "flextable"
+)
+
+# (optional) polish the table
+summary_ft <- autofit(summary_ft)
+# summary_ft <- add_footer_lines(summary_ft, "+ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001")
+
+# 5) save to Word
+flextable::save_as_docx("Table S3. Model summary" = summary_ft,
+                        path = "revisions/tables/summaryTableFrequency.docx")
+
+## full table
+
+# 1) list of formulas from simplest to most complex
+forms <- list(
+  "Knowledge"    = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + perception_spatial",
+  "K+unemploy"    = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "K+dist"       = "AM_Knowlg_1 ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial",
+  "Frequency"    = "AM_Freq ~ quota_age_ + quota_education + gender + perception_spatial",
+  "F+unemploy"    = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "F+dist"       = "AM_Freq ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial",
+  "Satisfaction" = "AM_Perc ~ quota_age_ + quota_education + gender + perception_spatial",
+  "S+unemploy" = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + perception_spatial",
+  "S+dist"       = "AM_Perc ~ quota_age_ + quota_education + gender + employBin + distanceNearestM + perception_spatial"
+  )
+
+# 2) fit models in one line with lapply
+models <- lapply(forms, function(f) lm(as.formula(f), data = dataJoburg))
+
+# 3) (optional) nicer coefficient labels
+coef_map <- c(
+  "(Intercept)" = "(Intercept)",
+  "quota_age_" = "Age",
+  "perception_spatial" = "Perception (spatial)",
+  "quota_education" = "Education",
+  "gendermale" = "Male",
+  "employBin2unemployed" = "Unemployment",
+  "quota_education:employBin2unemployed" = "Education × Unemployment",
+  "distanceNearestM" = "Distance (m)"
+)
+
+# 4) single tidy table (estimates, SEs, p-values, stars)
+summary_ft <- modelsummary(models,
+             coef_map = coef_map,
+             fmt = 3,                # digits
+             statistic = c("std.error","p.value"),
+             stars = TRUE)
+
+# 4) build a flextable from modelsummary
+summary_ft <- modelsummary(
+  models,
+  coef_map  = coef_map,
+  fmt       = 3,
+  statistic = c("({std.error})"),  # SEs on one line, p on next
+  stars     = TRUE,
+  gof_omit  = "IC|Log|F|RMSE",                    # optional: hide some GOF rows
+  output    = "flextable"
+)
+
+# (optional) polish the table
+summary_ft <- autofit(summary_ft)
+# summary_ft <- add_footer_lines(summary_ft, "+ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001")
+
+# 5) save to Word
+flextable::save_as_docx("Table S1. Model summary" = summary_ft,
+                        path = "revisions/tables/summaryTableKFS.docx")
+
+```
+
+
+
+```{r perceived exposure}
+
+dataJoburg$perception_current
+dataJoburg$perception_spatial
+dataJoburg$concern_gen
+
+cor(dataJoburg$perception_current, dataJoburg$perception_spatial, method = "spearman")
+
+```
+
+
+
+```{r boxplots}
+
+p1 <- dataJoburg %>%
+  filter(!is.na(AM_Knowlg_1)) %>%
+  ggplot(aes(y = AM_Knowlg_1, x = age_group_cat))+
+  labs(title = "If you would want to know how much air pollution there is in Johannesburg,\nwould you know or not know where to find this information?",
+       x = "Age Group",
+       y = "Knowledge")+
+  geom_boxplot(col = "black", fill = "white")+
+  theme_minimal()
+
+ggsave(plot = p1, filename = paste("revisions/plots/boxplotKnowledgeAge.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
+p2 <- dataJoburg %>%
+  filter(!is.na(AM_Freq)) %>%
+  ggplot(aes(y = AM_Freq, x = age_group_cat))+
+  labs(y = "",
+       x = "Age Group")+
+  geom_boxplot(col = "black", fill = "white")+
+  theme_minimal()
+
+ggsave(plot = p2, filename = paste("revisions/plots/reviewerResponse_boxplotFreqAge.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
+p3 <- dataJoburg %>%
+  filter(!is.na(AM_Perc)) %>%
+  ggplot(aes(y = AM_Perc, x = age_group_cat))+
+  labs(y = "",
+       x = "Age Group")+
+  geom_boxplot(col = "black", fill = "white")+
+  theme_minimal()
+
+
+ggsave(plot = p3, filename = paste("revisions/plots/reviewerResponse_boxplotSatisfAge.png", sep = ""),
+       dpi=600, width = 18, height = 10, units='cm')
+
+
+```
+
+
+
+
 

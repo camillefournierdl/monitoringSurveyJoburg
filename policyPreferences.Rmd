@@ -40,8 +40,7 @@ session_info <- print(sessionInfo())
 
 set.seed(123)
 
-dataJoburg <- read.csv("data/data_joh_person.csv")
-
+dataJoburg <- read.csv("data/data_joh_person_anon.csv")
 ```
 
 
@@ -64,11 +63,8 @@ dataJoburg <- dataJoburgFilter
 
 
 ```{r figure policy pref}
-library(dplyr)
-library(ggplot2)
 library(RColorBrewer)
 library(scales)
-library(tidyr) # For pivot_longer
 
 # --- Step 1: Recode and factor all three policy variables ---
 recode_policy <- function(x) {

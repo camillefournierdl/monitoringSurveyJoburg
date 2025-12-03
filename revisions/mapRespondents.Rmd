@@ -306,7 +306,7 @@ p1 <- ggplot() +
 
 p1
 
-ggsave(plot = p1, filename = paste("revisions/mapJoburgWD.png", sep = ""),
+ggsave(plot = p1, filename = paste("revisions/plots/mapJoburgWD.png", sep = ""),
        dpi=600, width = 22, height = 16, units='cm')
 
 # we still have 398 respondents for which we dont have exact coordinates, but coverage should look the same, there's no systematic reason why the tablets didn't register the lon/lat
@@ -327,5 +327,123 @@ write.csv(distances, "revisions/distanceToAQM.csv", row.names = F)
 
 ```
 
+```{r perceived exposure}
+
+mainPlaces <- vect("revisions/dataCensus/WD_SA_2011.shp")
+
+outlineCity <- vect("revisions/dataCensus/DC_SA_2011.shp")
+
+outlineCity <- subset(outlineCity, outlineCity$DC_NAME == "City of Johannesburg")
+crs(outlineCity) <- crs(dataset)
+
+crs(mainPlaces) <- crs(dataset)
+
+mainPlaces <- crop(mainPlaces, outlineCity)
+
+dataJoburgSP <- vect(dataJoburg, geom=c("LocationLongitude", "LocationLatitude"), crs = crs(mainPlaces), keepgeom=FALSE)
+
+dataJoburgSP
+
+### gpt
+
+pts_df <- cbind(as.data.frame(dataJoburgSP), OBJECTID = terra::extract(mainPlaces, dataJoburgSP)$OBJECTID)
+
+summary_df <- pts_df %>%
+  filter(!is.na(OBJECTID)) %>%
+  group_by(OBJECTID) %>%
+  summarise(mean_value = mean(perception_spatial, na.rm = TRUE),
+            n_points  = sum(perception_spatial))
+
+mainPlaces_sum <- merge(mainPlaces, summary_df, by = "OBJECTID", all.x = T, all.y = F)
+
+library(ggnewscale)   # allows two fill scales in one plot
+
+p1 <- ggplot() +
+  geom_spatvector(data = mainPlaces_sum, aes(fill = mean_value), alpha = 0.9) +
+  geom_spatvector(data = outlineCity, color = "black", fill = NA) +
+  geom_spatvector(
+    data = dataJoburgSP,
+    size = 2, alpha = 0.2, col = "black"
+  ) +
+  # scales
+  # scale_fill_manual(values = blues10, name = "Income level decile") +
+  theme_void()
+
+p1
+
+# prepare categorical variable (example: quantile breaks -> 5 classes)
+labels <- c("Much worse", "Worse", "About the same", "Better", "Much better")
+breaks_q <- quantile(mainPlaces_sum$mean_value, probs = seq(0, 1, length.out = 6), na.rm = TRUE)
+mainPlaces_sum$aq_cat <- cut(mainPlaces_sum$mean_value,
+                             breaks = breaks_q,
+                             labels = labels,
+                             include.lowest = TRUE,
+                             ordered_result = TRUE)
+
+# palettes
+cont_cols <- colorRampPalette(c("#d73027","#ffffbf","#1a9850"))(100)  # continuous colours
+disc_cols <- c("#d73027","#fc8d59","#ffffbf","#91cf60","#1a9850")     # discrete legend colours
+
+mainPlaces_sum$mean_value <- ifelse(mainPlaces_sum$n_points < 5, NA, mainPlaces_sum$mean_value)
+
+# Plot: continuous fill for visual; invisible categorical layer to create legend
+p1 <- ggplot() +
+  # 1) continuous layer (visual); hide its legend with guide = "none"
+  geom_spatvector(data = mainPlaces_sum, aes(fill = mean_value), color = "grey") +
+  scale_fill_gradientn(colors = cont_cols, na.value = "grey90", guide = "none") +
+
+  # allow a new fill scale
+  ggnewscale::new_scale_fill() +
+
+  # 2) invisible categorical layer (only for the legend)
+  geom_spatvector(data = mainPlaces_sum,
+                  aes(fill = aq_cat),
+                  alpha = 0,      # invisible on map
+                  color = NA,     # no border from this layer
+                  show.legend = TRUE) +
+
+  # discrete scale that controls the legend appearance
+  scale_fill_manual(values = disc_cols,
+                    name = "In comparison to other parts of Johannesburg,\ndo you think the air quality where you live is worse,\nthe same, or better?",
+                    na.value = "grey90",
+                    drop = FALSE,
+                    guide = guide_legend(override.aes = list(alpha = 1)),
+                    na.translate = F) +
+
+  # other map layers
+  geom_spatvector(data = outlineCity, color = "black", fill = NA) +
+  geom_spatvector(data = dataJoburgSP, size = 1, alpha = 0.2, col = "black") +
+
+  theme_void() +
+  theme(legend.position = "right",
+        legend.title.align = 0)
+
+p1
+
+ggsave(plot = p1, filename = paste("revisions/plots/perceivedSpatialExposure.png", sep = ""),
+       dpi=600, width = 22, height = 16, units='cm')
+
+pollution2023 <- rast("data/V6GL02.04.CNNPM25.GL.202301-202312.nc")
+
+pollution2023 <- crop(pollution2023, ext(outlineCity))
+
+p2 <- ggplot() +
+  geom_spatvector(data = mainPlaces_sum, fill  = NA, color = "grey") +
+  geom_spatraster(data = pollution2023)+
+  # other map layers
+  geom_spatvector(data = outlineCity, color = "black", fill = NA) +
+  scale_fill_gradientn(colors = c("#2ECC71", "#F1C40F", "#E67E22", "#E74C3C", "#922B21"))+
+  labs(fill = "PM2.5 levels\nvan Donkelaar\nremotely-sensed\nestimations for 2023")+
+  theme_void() +
+  theme(legend.position = "right",
+        legend.title.align = 0)
+
+
+p2
+
+ggsave(plot = p2, filename = paste("revisions/plots/remotelySensedExposure.png", sep = ""),
+       dpi=600, width = 22, height = 16, units='cm')
+
+```
 
 

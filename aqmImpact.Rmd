@@ -41,7 +41,7 @@ session_info <- print(sessionInfo())
 
 set.seed(123)
 
-dataJoburg <- read.csv("data/data_joh_person.csv")
+dataJoburg <- read.csv("data/data_joh_person_anon.csv")
 
 ```
 
@@ -66,11 +66,8 @@ dataJoburg <- dataJoburgFilter
 
 
 ```{r figure policy pref}
-library(dplyr)
-library(ggplot2)
 library(RColorBrewer)
 library(scales)
-library(tidyr) # For pivot_longer
 
 # --- Step 1: Recode and factor all three policy variables ---
 recode_policy <- function(x) {
@@ -166,16 +163,17 @@ p_stacked_fixed <- ggplot(summary_data, aes(x = Question_Plot_Label, y = share,
     x = "",
     y = "Percentage",
     fill = "Response",
-    title = "More air quality measurements would..." # Generalize title
+    title = "What do you think would happen if the City measured air pollution\nin more places and made the information easy to find?
+" # question
   ) +
   theme_minimal() +
   theme(
     legend.position = "top",
     legend.title = element_blank(),
-    axis.text.y = element_text(size = 10, face = "bold"),
+    axis.text.y = element_text(size = 10),
     axis.text.x = element_text(size = 8),
     axis.title.x = element_text(size = 9),
-    plot.title = element_text(size = 12, face = "bold")
+    plot.title = element_text(size = 12)
   )
 
 print(p_stacked_fixed)

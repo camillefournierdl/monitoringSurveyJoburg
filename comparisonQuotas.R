@@ -5,7 +5,7 @@ library(RColorBrewer)
 
 set.seed(123)
 
-dataJoburg <- read.csv("data/data_joh_person.csv")
+dataJoburg <- read.csv("data/data_joh_person_anon.csv")
 
 # make quotas simpler 
 dataJoburg <- subset(dataJoburg, quota_gender.0 %in% c(1,2))

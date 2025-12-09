@@ -5,37 +5,9 @@ output: html_document
 
 ```{r setup}
 
-# ## clean environment
-# # rm(list = ls())
-# 
-# # Define which packages needed for analyses
-# p_needed <-
-#   c("tidyverse")
-# 
-# # Check which packages are already installed on your computer
-# packages <- rownames(installed.packages())
-# 
-# # Check which packages are not installed
-# p_to_install <- p_needed[!(p_needed %in% packages)]
-# 
-# if (length(p_to_install) > 0) {
-#   install.packages(p_to_install)
-# }
-# sapply(p_needed, require, character.only = TRUE)
-# 
-# 
-# # Set an option for the final document that can be produced from the .Rmd file.
-# knitr::opts_chunk$set(echo = TRUE)
-# 
-# ## For replicability: session information 
-# session_info <- print(sessionInfo())
-
 library(tidyverse)
 library(scales)
 library(RColorBrewer)
-
-# Set an option for the final document that can be produced from the .Rmd file.
-knitr::opts_chunk$set(echo = TRUE)
 
 ## For replicability: session information 
 session_info <- print(sessionInfo())

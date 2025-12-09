@@ -5,27 +5,6 @@ output: html_document
 
 ```{r setup}
 
-# ## clean environment
-# # rm(list = ls())
-# 
-# # Define which packages needed for analyses
-# p_needed <-
-#   c("tidyverse", "terra", "tidyterra", "ggrepel", "RColorBrewer")
-# 
-# # Check which packages are already installed on your computer
-# packages <- rownames(installed.packages())
-# 
-# # Check which packages are not installed
-# p_to_install <- p_needed[!(p_needed %in% packages)]
-# 
-# if (length(p_to_install) > 0) {
-#   install.packages(p_to_install)
-# }
-# sapply(p_needed, require, character.only = TRUE)
-# # 
-# ## For replicability: session information 
-# session_info <- print(sessionInfo())
-
 library(tidyverse)
 library(terra)
 library(tidyterra)
@@ -137,8 +116,8 @@ p1 <- ggplot() +
 
 p1
 
-# ggsave(plot = p1, filename = paste("revisions/mapJoburgMP.png", sep = ""),
-#        dpi=600, width = 22, height = 16, units='cm')
+ggsave(plot = p1, filename = paste("revisions/plots/mapJoburgMP.png", sep = ""),
+       dpi=600, width = 22, height = 16, units='cm')
 
 # we still have 398 respondents for which we dont have exact coordinates, but coverage should look the same, there's no systematic reason why the tablets didn't register the lon/lat
 
@@ -214,8 +193,6 @@ table(dataJoburgSA$Label)
 dataJoburgSAToMerge <- dataJoburgSA %>% 
   select(Label, study_area_sa)
 
-# here could fill in missing SPs
-
 # merge with spatial SP
 
 datasetTerra <- vect("revisions/dataCensus/everythingJoburgSP.gpkg") # small places
@@ -259,23 +236,6 @@ newext <- ext(xmin - pad_x, xmax + pad_x, ymin - pad_y, ymax + pad_y)
 
 ext_poly <- as.polygons(newext)       # SpatVector polygon
 monitorsJBRG <- intersect(monitors, ext_poly)
-
-# p1 <- ggplot() +
-#   geom_spatvector(data = mainPlacesInc, aes(fill = incomeLvl), alpha = 0.9) +
-#   geom_spatvector(data = outlineCity, color = "black", fill = NA) +
-#   scale_fill_manual(values = blues10)+
-#   # geom_spatvector(data = mainPlacesSubset, fill = "lightblue") +
-#   geom_spatvector(data = monitorsJBRG, col = "darkred", alpha = 1, size = 3, shape = 17) +
-#   geom_spatvector(data = dataJoburgSP, col = "black", alpha = 0.1, size = 2) +
-#   # geom_label_repel(data = centroids_df, aes(x = x, y = y, label = MP_NAME), size = 3, color = "black", max.overlaps = 30, box.padding = 1.2, alpha = 1 ) +
-#   theme_void() +
-#   labs(fill = "Income level decile")
-#   # theme(legend.position = "none")
-# 
-# p1
-# 
-# ggsave(plot = p1, filename = paste("revisions/mapJoburgMP.png", sep = ""),
-#        dpi=600, width = 22, height = 16, units='cm')
 
 p1 <- ggplot() +
   geom_spatvector(data = mainPlacesInc, aes(fill = incomeLvl), alpha = 0.9) +

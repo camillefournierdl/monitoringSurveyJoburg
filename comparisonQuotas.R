@@ -89,3 +89,4 @@ p2 <- ggplot(education_long, aes(x = factor(education_level_cat, levels = c("noE
 
 ggsave(plot = p2, filename = paste("plots/quotaEducation.png", sep = ""),
        dpi=600, width = 15, height = 17, units='cm')
+# 

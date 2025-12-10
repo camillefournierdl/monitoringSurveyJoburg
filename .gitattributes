@@ -1,0 +1,6 @@
+data/V6GL02.04.CNNPM25.GL.202301-202312.nc filter=lfs diff=lfs merge=lfs -text
+revisions/dataCensus/MP_SA_2011.shp filter=lfs diff=lfs merge=lfs -text
+revisions/dataCensus/MP_SA_2011.dbf filter=lfs diff=lfs merge=lfs -text
+revisions/dataCensus/MP_SA_2011.prj filter=lfs diff=lfs merge=lfs -text
+revisions/dataCensus/MP_SA_2011.shx filter=lfs diff=lfs merge=lfs -text
+revisions/dataCensus/WD_SA_2011.shp filter=lfs diff=lfs merge=lfs -text

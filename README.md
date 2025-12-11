@@ -7,13 +7,9 @@
 - Raeesa Moola
 - Thomas Bernauer
 
-@article{10.1088/1748-9326/ae293d,
-	author={Fournier De Lauriere, Camille and Freihardt, Jan and Moolla, Raeesa and Bernauer, Thomas},
-	title={More research needed on people’s responses to air quality data},
-	journal={Environmental Research Letters},
-	url={http://iopscience.iop.org/article/10.1088/1748-9326/ae293d},
-	year={2025}
-}
+Fournier de Lauriere, C., Freihardt, J., Moolla, R., & Bernauer, T. (2025).
+More research needed on people’s responses to air quality data.
+Environmental Research Letters. http://iopscience.iop.org/article/10.1088/1748-9326/ae293d
 
 ## Overview
 
@@ -36,8 +32,8 @@ final publication.
         Profiles
 
 ## Repository Structure
-```
 
+```
     .
     ├── data/
     ├── plots/
@@ -52,10 +48,12 @@ final publication.
     ├── .gitattributes
     └── LICENSE
 
-
 ```
+
+The revision folder contains scripts and data added submission.
+
 Data folders: - data/ — datasets used at submission -
-revisions/dataCensus/ — datasets & plots added after revision
+revisions/dataCensus/ — datasets added after revision
 
 ## License
 
